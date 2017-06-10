@@ -12,6 +12,10 @@ from keras.layers.convolutional import Convolution2D
 from keras.layers.pooling import MaxPooling2D
 from sklearn.model_selection import train_test_split
 
+CENTER_IMAGE = 0
+LEFT_IMAGE = 1
+RIGHT_IMAGE = 2
+
 def make_lenet():
     """
     Build a LeNet model using keras
@@ -32,23 +36,26 @@ def make_lenet():
 
     return model
 
+
 def csv2samples(path, file):
     """
     Read a csv file and save into a list
+    The format of sample : [path, steering, image type]
     """
     samples_raw = []
-    with open(path+file) as csvfile:
+    with open(path + file) as csvfile:
         reader = csv.reader(csvfile)
         for line in reader:
             samples_raw.append(line)
 
-    samples =[]
+    samples = []
     for row in samples_raw:
         steering = float(row[3])
-        samples.append([path+row[0],steering,0])
-        samples.append([path+row[1],steering,1])
-        samples.append([path+row[2],steering,2])
+        samples.append([path + row[CENTER_IMAGE], steering, CENTER_IMAGE])
+        samples.append([path + row[LEFT_IMAGE], steering, LEFT_IMAGE])
+        samples.append([path + row[RIGHT_IMAGE], steering, RIGHT_IMAGE])
     return samples
+
 
 def generator(path, samples, batch_size=32):
     """
@@ -58,7 +65,7 @@ def generator(path, samples, batch_size=32):
     while 1:  # Loop forever so the generator never terminates
         shuffle(samples)
         for offset in range(0, num_samples, batch_size):
-            for image_index in range(0,3):
+            for image_index in range(0, 3):
                 batch_samples = samples[offset:offset + batch_size]
                 images = []
                 measurements = []
@@ -74,24 +81,22 @@ def generator(path, samples, batch_size=32):
                 y_train = np.array(measurements)
                 yield sklearn.utils.shuffle(X_train, y_train)
 
+def augment_steering(samples,steering):
+    # Augment the data
+    # [-25,25] -> [left,right]
+    for i in range(0, len(samples)):
+        if samples[i][2] == 1:
+            samples[i][LEFT_IMAGE] = samples[i][LEFT_IMAGE] + steering
+        elif samples[i][2] == RIGHT_IMAGE:
+            samples[i][RIGHT_IMAGE] = samples[i][RIGHT_IMAGE] - steering
+    return samples
 
 def generate_train_data(path):
     """
     Generate a fix batch of random training data from a path
     """
-    samples = csv2samples(path,"driving_log.csv")
-
-    print("Samples..", samples[0:6])
-
-    # Augment the data
-    # [-25,25] -> [left,right]
-    for i in range(0,len(samples)):
-        if samples[i][2]==1:
-            samples[i][1]= samples[i][1] +1.0
-        elif samples[i][2]==2:
-            samples[i][1]= samples[i][1] -1.0
-
-    print("Augmented..", samples[0:6])
+    samples = csv2samples(path, "driving_log.csv")
+    samples = augment_steering(samples,0.25)
 
     images = []
     measurements = []
