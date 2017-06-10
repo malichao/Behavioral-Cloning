@@ -87,16 +87,16 @@ def generate_train_data(path):
     # [-25,25] -> [left,right]
     for i in range(0,len(samples)):
         if samples[i][2]==1:
-            samples[i][1]= 2.5
+            samples[i][1]= samples[i][1] +1.0
         elif samples[i][2]==2:
-            samples[i][1]=-2.5
+            samples[i][1]= samples[i][1] -1.0
 
     print("Augmented..", samples[0:6])
 
     images = []
     measurements = []
     shuffle(samples)
-    FILE_NUM = 3600
+    FILE_NUM = 3700
     print("Read ", len(samples), " files, only use first", FILE_NUM, " ones")
     samples = samples[0:FILE_NUM]
     print("Shuffle inputs.. ", samples[0:5])
