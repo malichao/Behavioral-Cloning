@@ -32,15 +32,22 @@ def make_lenet():
 
     return model
 
-def csv2samples(file):
+def csv2samples(path, file):
     """
     Read a csv file and save into a list
     """
-    samples = []
-    with open(file) as csvfile:
+    samples_raw = []
+    with open(path+file) as csvfile:
         reader = csv.reader(csvfile)
         for line in reader:
-            samples.append(line)
+            samples_raw.append(line)
+
+    samples =[]
+    for row in samples_raw:
+        steering = float(row[3])
+        samples.append([path+row[0],steering,0])
+        samples.append([path+row[1],steering,1])
+        samples.append([path+row[2],steering,2])
     return samples
 
 def generator(path, samples, batch_size=32):
@@ -72,33 +79,31 @@ def generate_train_data(path):
     """
     Generate a fix batch of random training data from a path
     """
-    csv_data = np.genfromtxt(path + "driving_log.csv", delimiter=',',
-                             names=True, dtype=None)
-    FILE_NUM = 1000
-    print("Read ", len(csv_data), " files, only use first", FILE_NUM, " ones")
-    measurements_raw = [t[3] for t in csv_data]
-    file_names = [[t[0].decode('utf-8'), t[1].decode('utf-8'),
-                   t[2].decode('utf-8')] for t in csv_data]
-    measurements_raw = measurements_raw[0:FILE_NUM]
-    file_names = file_names[0:FILE_NUM]
+    samples = csv2samples(path,"driving_log.csv")
+
+    print("Samples..", samples[0:6])
+
+    # Augment the data
+    # [-25,25] -> [left,right]
+    for i in range(0,len(samples)):
+        if samples[i][2]==1:
+            samples[i][1]= 2.5
+        elif samples[i][2]==2:
+            samples[i][1]=-2.5
+
+    print("Augmented..", samples[0:6])
 
     images = []
     measurements = []
-
-    selected = [i for i in range(0, len(file_names))]
-    shuffle(selected)
-    print("Shuffle inputs.. ", selected[0:10])
-    for i in range(0, FILE_NUM):
-        files = file_names[selected[i]]
-        mea = measurements_raw[selected[i]]
-        for file in files:
-            if file[0] == ' ':    # Stupid space...
-                file = file[1:]
-            file_name = path + file
-            image = cv2.imread(file_name)
-            #image_flipped = np.fliplr(image)
-            images.append(image)
-            measurements.append(mea)
+    shuffle(samples)
+    FILE_NUM = 3600
+    print("Read ", len(samples), " files, only use first", FILE_NUM, " ones")
+    samples = samples[0:FILE_NUM]
+    print("Shuffle inputs.. ", samples[0:5])
+    for sample in samples:
+        image = cv2.imread(sample[0])
+        images.append(image)
+        measurements.append(sample[1])
 
     X_train = np.array(images)
     y_train = np.array(measurements)
