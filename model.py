@@ -20,7 +20,10 @@ source_path ="data/"
 for file_name in file_names:
     file_name = source_path + file_name
     image = cv2.imread(file_name)
+    image_flipped = np.fliplr(image)
     images.append(image)
+
+measurements = [ -mea for mea in measurements]
 
 X_train =  np.array(images)
 y_train =  np.array(measurements)
