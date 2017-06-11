@@ -1,7 +1,8 @@
 import utils
 import numpy as np
 
-model = utils.make_lenet()
+#model = utils.make_lenet()
+model = utils.make_commaai()
 model.compile(loss='mse', optimizer='adam')
 
 # My simple sample reading
