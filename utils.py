@@ -12,9 +12,15 @@ from keras.layers.convolutional import Convolution2D
 from keras.layers.pooling import MaxPooling2D
 from sklearn.model_selection import train_test_split
 
+# Image type definition in samples
 CENTER_IMAGE = 0
 LEFT_IMAGE = 1
 RIGHT_IMAGE = 2
+
+# Index definition for samples
+INDEX_PATH =0
+INDEX_STEER =1
+INDEX_TYPE =2
 
 def make_lenet():
     """
@@ -81,27 +87,35 @@ def generator(path, samples, batch_size=32):
                 y_train = np.array(measurements)
                 yield sklearn.utils.shuffle(X_train, y_train)
 
-def augment_steering(samples,steering):
+
+def augment_steering(samples, steering_center=0, steering_left=0, steering_right=0):
     # Augment the data
     # [-25,25] -> [left,right]
     for i in range(0, len(samples)):
-        if samples[i][2] == 1:
-            samples[i][LEFT_IMAGE] = samples[i][LEFT_IMAGE] + steering
-        elif samples[i][2] == RIGHT_IMAGE:
-            samples[i][RIGHT_IMAGE] = samples[i][RIGHT_IMAGE] - steering
+        if samples[i][INDEX_TYPE] == CENTER_IMAGE:
+            samples[i][INDEX_STEER] = samples[i][INDEX_STEER] + steering_center
+        elif samples[i][INDEX_TYPE] == LEFT_IMAGE:
+            samples[i][INDEX_STEER] = samples[i][INDEX_STEER] + steering_left
+        elif samples[i][INDEX_TYPE] == RIGHT_IMAGE:
+            samples[i][INDEX_STEER] = samples[i][INDEX_STEER] + steering_right
     return samples
+
 
 def generate_train_data(path):
     """
     Generate a fix batch of random training data from a path
     """
-    samples = csv2samples(path, "driving_log.csv")
-    samples = augment_steering(samples,0.25)
+    samples = csv2samples(path + "track1-center/", "driving_log.csv")
+    samples = augment_steering(samples, 0, 0.25,-0.25)
+
+    samples1 = csv2samples(path + "track1-center1/", "driving_log.csv")
+    samples1 = augment_steering(samples, -0.25,0,-1)
+    samples= samples + samples1
 
     images = []
     measurements = []
     shuffle(samples)
-    FILE_NUM = 3700
+    FILE_NUM = 7000
     print("Read ", len(samples), " files, only use first", FILE_NUM, " ones")
     samples = samples[0:FILE_NUM]
     print("Shuffle inputs.. ", samples[0:5])
