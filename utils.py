@@ -12,6 +12,7 @@ from keras.layers.convolutional import Convolution2D
 from keras.layers.pooling import MaxPooling2D
 from sklearn.model_selection import train_test_split
 
+import matplotlib.pyplot as plt
 # Image type definition in samples
 CENTER_IMAGE = 0
 LEFT_IMAGE = 1
@@ -60,6 +61,7 @@ def csv2samples(path, file):
         samples.append([path + row[CENTER_IMAGE], steering, CENTER_IMAGE])
         samples.append([path + row[LEFT_IMAGE], steering, LEFT_IMAGE])
         samples.append([path + row[RIGHT_IMAGE], steering, RIGHT_IMAGE])
+    print("Read ", len(samples))
     return samples
 
 
@@ -100,21 +102,52 @@ def augment_steering(samples, steering_center=0, steering_left=0, steering_right
             samples[i][INDEX_STEER] = samples[i][INDEX_STEER] + steering_right
     return samples
 
+def reduce_straight_steering(samples,keep_ratio=0.5):
+    keep_num = len(samples)*keep_ratio
+    new_samples = []
+    straight_count =0
+    for sample in samples:
+        if abs(sample[INDEX_STEER]) < 0.01:
+            if straight_count < keep_num:
+                new_samples.append(sample)
+                straight_count+=1
+        else:
+            new_samples.append(sample)
+    return new_samples
+
+def plot_steering_distribution(samples):
+    bars = [i*0.1 for i in range(-100,100,1)]
+    counts = [0]*200
+    for sample in samples:
+        index =int(sample[INDEX_STEER]*100)+100
+        index = min(max(0, index), len(counts)-1)
+        counts[index] =   counts[index] +1
+    plt.bar(bars,counts)
+    plt.show()
+
 
 def generate_train_data(path):
     """
     Generate a fix batch of random training data from a path
     """
-    samples = csv2samples(path + "track1-center1/", "driving_log.csv")
-    samples = augment_steering(samples, 0, 0.25,-0.25)
-    print(samples[0:6])
-    # samples1 = csv2samples(path + "track1-center1/", "driving_log.csv")
-    # samples1 = augment_steering(samples, 0, 0.25,-0.25)
+    samples = csv2samples(path + "track1-center/", "driving_log.csv")
+    shuffle(samples)
+    # plot_steering_distribution(samples)
+    samples = reduce_straight_steering(samples,0.25)
+    # plot_steering_distribution(samples)
+    # samples = augment_steering(samples, 0, 0.3,-0.3)
+
+    # samples1 = csv2samples(path + "track1-center/", "driving_log.csv")
+    # samples1 = augment_steering(samples1, 0, 0.25,-0.25)
+    
     # samples= samples + samples1
+    # shuffle(samples)
+    # # plot_steering_distribution(samples)
+    # samples = reduce_straight_steering(samples,0.3)
+    # # plot_steering_distribution(samples)
 
     images = []
     measurements = []
-    shuffle(samples)
     FILE_NUM = 3000
     print("Read ", len(samples), " files, only use first", FILE_NUM, " ones")
     samples = samples[0:FILE_NUM]
@@ -125,8 +158,8 @@ def generate_train_data(path):
         measurements.append(sample[1])
 
         # Flip the image
-        # images.append(np.fliplr(image))
-        # measurements.append(-sample[1])
+        images.append(np.fliplr(image))
+        measurements.append(-sample[1])
 
     X_train = np.array(images)
     y_train = np.array(measurements)

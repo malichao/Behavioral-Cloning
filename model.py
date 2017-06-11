@@ -6,7 +6,7 @@ model.compile(loss='mse', optimizer='adam')
 
 # My simple sample reading
 X_train, y_train = utils.generate_train_data("data/")
-model.fit(X_train, y_train, validation_split=0.2, shuffle=True, nb_epoch=5)
+model.fit(X_train, y_train, validation_split=0.2, shuffle=True, nb_epoch=8)
 
 
 # path = 'data/'
