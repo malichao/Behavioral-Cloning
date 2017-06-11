@@ -105,17 +105,17 @@ def generate_train_data(path):
     """
     Generate a fix batch of random training data from a path
     """
-    samples = csv2samples(path + "track1-center/", "driving_log.csv")
+    samples = csv2samples(path + "track1-center1/", "driving_log.csv")
     samples = augment_steering(samples, 0, 0.25,-0.25)
-
-    samples1 = csv2samples(path + "track1-center1/", "driving_log.csv")
-    samples1 = augment_steering(samples, -0.25,0,-1)
-    samples= samples + samples1
+    print(samples[0:6])
+    # samples1 = csv2samples(path + "track1-center1/", "driving_log.csv")
+    # samples1 = augment_steering(samples, 0, 0.25,-0.25)
+    # samples= samples + samples1
 
     images = []
     measurements = []
     shuffle(samples)
-    FILE_NUM = 7000
+    FILE_NUM = 3000
     print("Read ", len(samples), " files, only use first", FILE_NUM, " ones")
     samples = samples[0:FILE_NUM]
     print("Shuffle inputs.. ", samples[0:5])
@@ -123,6 +123,10 @@ def generate_train_data(path):
         image = cv2.imread(sample[0])
         images.append(image)
         measurements.append(sample[1])
+
+        # Flip the image
+        # images.append(np.fliplr(image))
+        # measurements.append(-sample[1])
 
     X_train = np.array(images)
     y_train = np.array(measurements)
