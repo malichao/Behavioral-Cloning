@@ -1,39 +1,29 @@
 import utils
 import numpy as np
+from sklearn.model_selection import train_test_split
+from keras.callbacks import ModelCheckpoint
 
-#model = utils.make_lenet()
-model = utils.make_commaai()
+model = utils.make_lenet()
+#model = utils.make_commaai()
 model.compile(loss='mse', optimizer='adam')
 
-# My simple sample reading
-X_train, y_train = utils.generate_train_data("data/")
-model.fit(X_train, y_train, validation_split=0.2, shuffle=True, nb_epoch=8)
+# # My simple sample reading
+# X_train, y_train = utils.generate_train_data("data/")
+# model.fit(X_train, y_train, validation_split=0.2, shuffle=True, nb_epoch=8)
 
 
-# path = 'data/'
-# samples = utils.csv2samples(path + 'driving_log.csv')
-# train_samples, validation_samples = train_test_split(samples, test_size=0.2)
-# train_size = len(train_samples)
-# validation_size = len(validation_samples)
-# print("Read ", len(samples), " samples")
-# print("train_samples      = ", train_size)
-# print("validation_samples = ", validation_size)
+path = 'data/'
+train_generator, validation_generator, train_size, valid_size = \
+    utils.generate_train_data2(path)
 
-# BATCH_SIZE = 100
-# train_size = int(train_size / BATCH_SIZE) * BATCH_SIZE
-# validation_size = int(validation_size / BATCH_SIZE) * BATCH_SIZE
-# train_samples = train_samples[0:train_size]
-# validation_samples = validation_samples[0:validation_size]
-# print("Resize sample size to avoid Keras warning")
-# print("train_samples      = ", train_size)
-# print("validation_samples = ", validation_size)
-# train_generator = utils.generator(path, train_samples, batch_size=BATCH_SIZE)
-# validation_generator = utils.generator(
-#     path, validation_samples, batch_size=BATCH_SIZE)
+checkpoint = ModelCheckpoint('model-{epoch:03d}.h5',
+                             monitor='val_loss',
+                             verbose=0,
+                             save_best_only=True,
+                             mode='auto')
 
-# print("samples_per_epoch", len(train_samples))
-# model.fit_generator(train_generator, samples_per_epoch=len(train_samples),
-#                     validation_data=validation_generator,
-#                     nb_val_samples=len(validation_samples), nb_epoch=3)
+model.fit_generator(train_generator, samples_per_epoch=train_size,
+                    validation_data=validation_generator,
+                    nb_val_samples=valid_size, nb_epoch=10, callbacks=[checkpoint])
 
 model.save("model.h5")

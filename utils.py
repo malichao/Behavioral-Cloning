@@ -14,9 +14,9 @@ from sklearn.model_selection import train_test_split
 
 import matplotlib.pyplot as plt
 # Image type definition in samples
-CENTER_IMAGE = 0
-LEFT_IMAGE = 1
-RIGHT_IMAGE = 2
+CENTER_IMAGE = int(0)
+LEFT_IMAGE = int(1)
+RIGHT_IMAGE = int(2)
 
 # Index definition for samples
 INDEX_PATH = 0
@@ -79,13 +79,14 @@ def csv2samples(path, file):
     for row in samples_raw:
         steering = float(row[3])
         samples.append([path + row[CENTER_IMAGE], steering, CENTER_IMAGE])
-        samples.append([path + row[LEFT_IMAGE], steering, LEFT_IMAGE])
-        samples.append([path + row[RIGHT_IMAGE], steering, RIGHT_IMAGE])
+        if abs(steering) > 0.01:
+            samples.append([path + row[LEFT_IMAGE], steering, LEFT_IMAGE])
+            samples.append([path + row[RIGHT_IMAGE], steering, RIGHT_IMAGE])
     print("Read ", len(samples))
     return samples
 
 
-def generator(path, samples, batch_size=32):
+def generator(samples, batch_size=32):
     """
     Generate a batch of training data
     """
@@ -93,21 +94,19 @@ def generator(path, samples, batch_size=32):
     while 1:  # Loop forever so the generator never terminates
         shuffle(samples)
         for offset in range(0, num_samples, batch_size):
-            for image_index in range(0, 3):
-                batch_samples = samples[offset:offset + batch_size]
-                images = []
-                measurements = []
-                for sample in batch_samples:
-                    file_name = path + sample[image_index]
-                    image = cv2.imread(file_name)
-                    images.append(image)
-                    mea = float(sample[3])
-                    measurements.append(mea)
+            images = []
+            measurements = []
+            batch_samples = samples[offset:offset + batch_size]
+            for batch_sample in batch_samples:
+                image = cv2.imread(batch_sample[INDEX_PATH])
+                images.append(image)
+                mea = batch_sample[INDEX_STEER]
+                measurements.append(mea)
 
-                # trim image to only see section with road
-                X_train = np.array(images)
-                y_train = np.array(measurements)
-                yield sklearn.utils.shuffle(X_train, y_train)
+            # trim image to only see section with road
+            X_train = np.array(images)
+            y_train = np.array(measurements)
+            yield sklearn.utils.shuffle(X_train, y_train)
 
 
 def augment_steering(samples, steering_center=0, steering_left=0, steering_right=0):
@@ -138,26 +137,40 @@ def reduce_straight_steering(samples, keep_ratio=0.5):
 
 
 def plot_steering_distribution(samples):
-    bars = [i * 0.1 for i in range(-100, 100, 1)]
-    counts = [0] * 200
+    num = int(200)
+    bars = [i * 0.1 for i in range(int(-num/2), int(num/2), 1)]
+    counts = [[0] * num,[0] * num,[0] * num]
     for sample in samples:
-        index = int(sample[INDEX_STEER] * 100) + 100
-        index = min(max(0, index), len(counts) - 1)
-        counts[index] = counts[index] + 1
-    plt.bar(bars, counts)
+        index = int(int(sample[INDEX_STEER] * num/2) + num/2)
+        index = min(max(0, index), num - 1)
+        type_ = sample[INDEX_TYPE]
+        counts[type_][index] = counts[type_][index] + 1
+    plt.subplot(1,3,1)
+    plt.bar(bars, counts[0],color='r', label='center')
+    plt.subplot(1,3,2)
+    plt.bar(bars, counts[1],color='g', label='left')
+    plt.subplot(1,3,3)
+    plt.bar(bars, counts[2],color='b', label='right')
     plt.show()
 
+# def plot_steering_distribution(samples):
+#     bars = [i * 0.1 for i in range(-100, 100, 1)]
+#     counts = [0] * 200
+#     for sample in samples:
+#         index = int(sample[INDEX_STEER] * 100) + 100
+#         index = min(max(0, index), len(counts) - 1)
+#         counts[index] = counts[index] + 1
+#     center=plt.bar(bars, counts,color='r', label='center')
+#     plt.show()
+    
 
-def generate_train_data(path):
-    """
-    Generate a fix batch of random training data from a path
-    """
-    samples = csv2samples(path + "track1-center/", "driving_log.csv")
+
+def preproccess_samples(samples, file_num=10000):
     shuffle(samples)
     # plot_steering_distribution(samples)
-    samples = reduce_straight_steering(samples, 0.25)
+    samples = reduce_straight_steering(samples, 0.1)
     # plot_steering_distribution(samples)
-    # samples = augment_steering(samples, 0, 0.3,-0.3)
+    samples = augment_steering(samples, 0, 0.5, -0.5)
 
     # samples1 = csv2samples(path + "track1-center/", "driving_log.csv")
     # samples1 = augment_steering(samples1, 0, 0.25,-0.25)
@@ -168,12 +181,53 @@ def generate_train_data(path):
     # samples = reduce_straight_steering(samples,0.3)
     # # plot_steering_distribution(samples)
 
+    if len(samples) > file_num:
+        print("Read ", len(samples), " files, only use first", file_num, " ones")
+        samples = samples[0:file_num]
+    return samples
+
+
+def generate_train_data2(path):
+    samples = csv2samples(path + "track1-center/", "driving_log.csv")
+    # plot_steering_distribution(samples)
+    # samples1 = csv2samples(path + "track1-center1/", "driving_log.csv")
+    # plot_steering_distribution(samples1)
+    # samples = samples + samples1
+    samples = preproccess_samples(samples)
+    # plot_steering_distribution(samples)
+    train_samples, validation_samples = train_test_split(
+        samples, test_size=0.2)
+    train_size = len(train_samples)
+    validation_size = len(validation_samples)
+    print("Read ", len(samples), " samples")
+    print("train_samples      = ", train_size)
+    print("validation_samples = ", validation_size)
+
+    BATCH_SIZE = 32
+    train_size = int(train_size / BATCH_SIZE) * BATCH_SIZE
+    validation_size = int(validation_size / BATCH_SIZE) * BATCH_SIZE
+    train_samples = train_samples[0:train_size]
+    validation_samples = validation_samples[0:validation_size]
+    print("Resize sample size to avoid Keras warning")
+    print("train_samples      = ", train_size)
+    print("validation_samples = ", validation_size)
+    train_generator = generator(train_samples, batch_size=BATCH_SIZE)
+    validation_generator = generator(
+        validation_samples, batch_size=BATCH_SIZE)
+
+    print("samples_per_epoch", len(train_samples))
+    return train_generator, validation_generator, len(train_samples), len(validation_samples)
+
+
+def generate_train_data(path):
+    """
+    Generate a fix batch of random training data from a path
+    """
+    samples = csv2samples(path + "track1-center/", "driving_log.csv")
+    samples = preproccess_samples(samples)
+
     images = []
     measurements = []
-    FILE_NUM = 3000
-    print("Read ", len(samples), " files, only use first", FILE_NUM, " ones")
-    samples = samples[0:FILE_NUM]
-    print("Shuffle inputs.. ", samples[0:5])
     for sample in samples:
         image = cv2.imread(sample[0])
         images.append(image)
