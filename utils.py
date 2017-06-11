@@ -11,6 +11,7 @@ from keras.layers.core import Dense, Activation, Flatten, Dropout, Lambda
 from keras.layers.convolutional import Convolution2D
 from keras.layers.pooling import MaxPooling2D
 from sklearn.model_selection import train_test_split
+from keras.layers.normalization import BatchNormalization
 
 import matplotlib.pyplot as plt
 # Image type definition in samples
@@ -23,16 +24,19 @@ INDEX_PATH = 0
 INDEX_STEER = 1
 INDEX_TYPE = 2
 
-
-def make_lenet():
-    """
-    Build a LeNet model using keras
-    """
+def make_preprocess_layers():
     model = Sequential()
     model.add(Lambda(lambda x: x / 255. - .5, input_shape=(160, 320, 3)))
     # Crop 50 rows from the top, 20 rows from the bottom
     # Crop 0 columns from the left, 0 columns from the right
     model.add(Cropping2D(cropping=((60, 23), (0, 0)), input_shape=(160, 320, 3)))
+    return model
+
+def make_lenet():
+    """
+    Build a LeNet model using keras
+    """
+    model = make_preprocess_layers()
     model.add(Convolution2D(6, 5, 5, activation="relu"))
     model.add(MaxPooling2D())
     model.add(Convolution2D(6, 5, 5, activation="relu"))
@@ -44,10 +48,26 @@ def make_lenet():
 
     return model
 
+def make_lenet2():
+    """
+    Build a LeNet model using keras
+    """
+    model = make_preprocess_layers()
+    model.add(Convolution2D(6, 5, 5, activation="relu"))
+    model.add(Dropout(.5))
+    model.add(MaxPooling2D())
+    model.add(Convolution2D(6, 5, 5, activation="relu"))
+    model.add(Dropout(.5))
+    model.add(MaxPooling2D())
+    model.add(Flatten())
+    model.add(Dense(120))
+    model.add(Dense(84))
+    model.add(Dense(1))
+
+    return model
 
 def make_commaai():
-    model = Sequential()
-    model.add(Lambda(lambda x: x / 255. - .5, input_shape=(160, 320, 3)))
+    model = make_preprocess_layers()
     model.add(Convolution2D(16, 8, 8, subsample=(4, 4), border_mode="same"))
     model.add(ELU())
     model.add(Convolution2D(32, 5, 5, subsample=(2, 2), border_mode="same"))
@@ -63,6 +83,50 @@ def make_commaai():
 
     return model
 
+def make_commaai2():
+    model = make_preprocess_layers()
+    model.add(Convolution2D(3, 1, 1, subsample=(1, 1), border_mode='same',
+                            init = 'he_normal'))
+    model.add(BatchNormalization())
+    model.add(ELU())
+    model.add(Convolution2D(16, 5, 5, subsample=(4, 4), border_mode="same",
+                            init = 'he_normal'))
+    model.add(BatchNormalization())
+    model.add(ELU())
+    model.add(Convolution2D(32, 3, 3, subsample=(2, 2), border_mode="same",
+                            init = 'he_normal'))
+    model.add(BatchNormalization())
+    model.add(ELU())
+    model.add(Convolution2D(64, 3, 3, subsample=(2, 2), border_mode="same", 
+                            init = 'he_normal'))
+    model.add(Flatten())
+    model.add(Dropout(.2))
+    model.add(ELU())
+    model.add(Dense(512))
+    model.add(Dropout(.5))
+    model.add(BatchNormalization())
+    model.add(ELU())
+    model.add(Dense(1))
+
+    return model
+
+def make_nvidia():
+    """
+    Creates nVidea Autonomous Car Group model
+    """
+    model = make_preprocess_layers()
+    model.add(Convolution2D(24,5,5, subsample=(2,2), activation='relu'))
+    model.add(Convolution2D(36,5,5, subsample=(2,2), activation='relu'))
+    model.add(Convolution2D(48,5,5, subsample=(2,2), activation='relu'))
+    model.add(Convolution2D(64,3,3, activation='relu'))
+    model.add(Convolution2D(64,3,3, activation='relu'))
+    model.add(Flatten())
+    model.add(Dense(100))
+    model.add(Dense(50))
+    model.add(Dense(10))
+    model.add(Dense(1))
+
+    return model
 
 def csv2samples(path, file):
     """
@@ -170,7 +234,7 @@ def preproccess_samples(samples, file_num=10000):
     # plot_steering_distribution(samples)
     samples = reduce_straight_steering(samples, 0.3)
     # plot_steering_distribution(samples)
-    samples = augment_steering(samples, 0, 0.5, -0.5)
+    samples = augment_steering(samples, 0, 0.25, -0.25)
 
     # samples1 = csv2samples(path + "track1-center/", "driving_log.csv")
     # samples1 = augment_steering(samples1, 0, 0.25,-0.25)
@@ -187,14 +251,16 @@ def preproccess_samples(samples, file_num=10000):
     return samples
 
 
-def generate_train_data2(path):
-    samples = csv2samples(path + "track1-center/", "driving_log.csv")
-    # plot_steering_distribution(samples)
+def generate_train_data2(path, plot =False):
+    samples = csv2samples(path + "track1-center1/", "driving_log.csv")
+    if plot :
+        plot_steering_distribution(samples)
     # samples1 = csv2samples(path + "track1-center1/", "driving_log.csv")
     # plot_steering_distribution(samples1)
     # samples = samples + samples1
     samples = preproccess_samples(samples)
-    # plot_steering_distribution(samples)
+    if plot:
+        plot_steering_distribution(samples)
     train_samples, validation_samples = train_test_split(
         samples, test_size=0.2)
     train_size = len(train_samples)
