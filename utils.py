@@ -168,7 +168,7 @@ def plot_steering_distribution(samples):
 def preproccess_samples(samples, file_num=10000):
     shuffle(samples)
     # plot_steering_distribution(samples)
-    samples = reduce_straight_steering(samples, 0.1)
+    samples = reduce_straight_steering(samples, 0.3)
     # plot_steering_distribution(samples)
     samples = augment_steering(samples, 0, 0.5, -0.5)
 
