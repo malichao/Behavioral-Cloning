@@ -209,12 +209,22 @@ def plot_steering_distribution(samples):
         index = min(max(0, index), num - 1)
         type_ = sample[INDEX_TYPE]
         counts[type_][index] = counts[type_][index] + 1
+    plt.figure(figsize=(15,3))
     plt.subplot(1,3,1)
     plt.bar(bars, counts[0],color='r', label='center')
     plt.subplot(1,3,2)
     plt.bar(bars, counts[1],color='g', label='left')
     plt.subplot(1,3,3)
     plt.bar(bars, counts[2],color='b', label='right')
+    plt.show()
+
+def plot_steering_over_time(samples):
+    steering = []
+    for sample in samples:
+        if sample[INDEX_TYPE]==CENTER_IMAGE:
+            steering.append(sample[INDEX_STEER])
+    plt.figure(figsize=(30,8))
+    plt.plot(steering,'r')
     plt.show()
 
 # def plot_steering_distribution(samples):
@@ -255,6 +265,7 @@ def generate_train_data2(path, plot =False):
     samples = csv2samples(path + "track1-center1/", "driving_log.csv")
     if plot :
         plot_steering_distribution(samples)
+        plot_steering_over_time(samples)
     # samples1 = csv2samples(path + "track1-center1/", "driving_log.csv")
     # plot_steering_distribution(samples1)
     # samples = samples + samples1
