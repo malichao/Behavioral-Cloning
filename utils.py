@@ -169,7 +169,6 @@ def generator(samples, batch_size=32):
     """
     num_samples = len(samples)
     while 1:  # Loop forever so the generator never terminates
-        shuffle(samples)
         for offset in range(0, num_samples, batch_size):
             images = []
             measurements = []
@@ -186,43 +185,47 @@ def generator(samples, batch_size=32):
             yield sklearn.utils.shuffle(X_train, y_train)
 
 
-def augment_steering(samples, steering_center=0, steering_left=0, steering_right=0):
+def augment_steering(samples, offset=0):
     # Augment the data
     # [-25,25] -> [left,right]
     for i in range(0, len(samples)):
         if samples[i][INDEX_TYPE] == CENTER_IMAGE:
-            samples[i][INDEX_STEER] = samples[i][INDEX_STEER] + steering_center
+            samples[i][INDEX_STEER] = samples[i][INDEX_STEER]
         elif samples[i][INDEX_TYPE] == LEFT_IMAGE:
-            samples[i][INDEX_STEER] = samples[i][INDEX_STEER] + steering_left
+            samples[i][INDEX_STEER] = samples[i][INDEX_STEER] + offset
         elif samples[i][INDEX_TYPE] == RIGHT_IMAGE:
-            samples[i][INDEX_STEER] = samples[i][INDEX_STEER] + steering_right
+            samples[i][INDEX_STEER] = samples[i][INDEX_STEER] - offset
     return samples
 
 
-def reduce_straight_steering(samples, keep_ratio=0.2):
+def reduce_straight_steering(samples, step=0, plot=False):
     """
-    Down sample the straight steering data
+    Down sample the straight steering data every N steps. If step =0, it does nothing
     """
-    straight_samples = []
-    steering_samples = []
+    if step == 0:
+        return samples
+
+    samples_new = []
+    count=0
 
     for sample in samples:
         if abs(sample[INDEX_STEER]) < 0.01:
-            straight_samples.append(sample)
+            count= count+1
+            if count >= step:
+                count = 0
+                samples_new.append(sample)
         else:
-            steering_samples.append(sample)
+            count=0
+            samples_new.append(sample)
 
-    step = int(1/keep_ratio)
-    step = min((len(straight_samples)),max(1,step))
-    # print("straight = ",len(straight_samples),"step = ",step)
-    straight_samples_new = [straight_samples[i]
-                            for i in range(0, len(straight_samples), step)]
-    samples_new = straight_samples_new + steering_samples
-    print("Samples are reduce from ",len(samples)," to ",len(samples_new))
+    print("Samples are reduce from ", len(samples), " to ", len(samples_new))
+    plot_steering_over_time(samples_new, plot)
     return samples_new
 
 
-def plot_steering_distribution(samples):
+def plot_steering_distribution(samples, plot=False):
+    if plot == False:
+        return
     num = int(200)
     bars = [i * 0.1 for i in range(int(-num / 2), int(num / 2), 1)]
     counts = [[0] * num, [0] * num, [0] * num]
@@ -241,7 +244,9 @@ def plot_steering_distribution(samples):
     plt.show()
 
 
-def plot_steering_over_time(samples):
+def plot_steering_over_time(samples, plot=False):
+    if plot == False:
+        return
     steering = []
     for sample in samples:
         if sample[INDEX_TYPE] == CENTER_IMAGE:
@@ -256,11 +261,13 @@ def filter_steering(samples, plot=False):
     gain = 1.0
     steering_f = 0
 
+    print("Filter the steering with weight=", weight)
+
     # BUG! Python never creates a new copy of the list for some reason! Maybe because
     # a list of list is complicated and python never does a deep copy!
     # filtered_samples = samples.copy()
     # filtered_samples = samples[:]
-    
+
     filtered_samples = []
     for sample in samples:
         sample_ = sample[:]
@@ -268,11 +275,11 @@ def filter_steering(samples, plot=False):
         sample_[INDEX_STEER] = steering_f
         filtered_samples.append(sample_)
 
-
     if plot:
-        plot_length = int(len(samples)/3)
+        plot_length = int(len(samples) / 3)
         steerings = [sample[INDEX_STEER] for sample in samples[0:plot_length]]
-        steerings_f = [sample[INDEX_STEER] for sample in filtered_samples[0:plot_length]]
+        steerings_f = [sample[INDEX_STEER]
+                       for sample in filtered_samples[0:plot_length]]
         plt.figure(figsize=(30, 8))
         plt.plot(steerings, 'r', steerings_f, 'b')
         plt.show()
@@ -292,11 +299,11 @@ def filter_steering(samples, plot=False):
 
 
 def preproccess_samples(samples, plot=False):
-    filter_steering(samples, plot)
-    # plot_steering_distribution(samples)
-    samples = reduce_straight_steering(samples, 0.3)
-    # plot_steering_distribution(samples)
-    samples = augment_steering(samples, 0, 0.25, -0.25)
+    plot_steering_distribution(samples, plot)
+    samples = filter_steering(samples, plot)
+    samples = reduce_straight_steering(samples, 10, plot)
+    samples = augment_steering(samples, 0.25)
+    plot_steering_distribution(samples, plot)
     shuffle(samples)
 
     return samples
@@ -304,17 +311,7 @@ def preproccess_samples(samples, plot=False):
 
 def generate_train_data2(path, plot=False):
     samples = csv2samples(path + "track1-center1/", "driving_log.csv")
-    if plot:
-        plot_steering_distribution(samples)
-        # plot_steering_over_time(samples)
-
-    # samples1 = csv2samples(path + "track1-center1/", "driving_log.csv")
-    # plot_steering_distribution(samples1)
-    # samples = samples + samples1
-
-    samples = preproccess_samples(samples)
-    if plot:
-        plot_steering_distribution(samples)
+    samples = preproccess_samples(samples, plot)
     train_samples, validation_samples = train_test_split(
         samples, test_size=0.2)
     train_size = len(train_samples)

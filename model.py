@@ -6,7 +6,7 @@ from keras.callbacks import ModelCheckpoint
 # model = utils.make_lenet()
 model = utils.make_lenet2()
 # model = utils.make_commaai()
-# model = utils.make_commaai2()
+model = utils.make_commaai2()
 # model = utils.make_nvidia()
 model.compile(loss='mse', optimizer='adam')
 
