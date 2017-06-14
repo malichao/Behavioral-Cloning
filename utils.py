@@ -24,6 +24,7 @@ INDEX_PATH = 0
 INDEX_STEER = 1
 INDEX_TYPE = 2
 
+
 def make_preprocess_layers():
     model = Sequential()
     model.add(Lambda(lambda x: x / 255. - .5, input_shape=(160, 320, 3)))
@@ -31,6 +32,7 @@ def make_preprocess_layers():
     # Crop 0 columns from the left, 0 columns from the right
     model.add(Cropping2D(cropping=((60, 23), (0, 0)), input_shape=(160, 320, 3)))
     return model
+
 
 def make_lenet():
     """
@@ -47,6 +49,7 @@ def make_lenet():
     model.add(Dense(1))
 
     return model
+
 
 def make_lenet2():
     """
@@ -66,6 +69,7 @@ def make_lenet2():
 
     return model
 
+
 def make_commaai():
     model = make_preprocess_layers()
     model.add(Convolution2D(16, 8, 8, subsample=(4, 4), border_mode="same"))
@@ -83,22 +87,23 @@ def make_commaai():
 
     return model
 
+
 def make_commaai2():
     model = make_preprocess_layers()
     model.add(Convolution2D(3, 1, 1, subsample=(1, 1), border_mode='same',
-                            init = 'he_normal'))
+                            init='he_normal'))
     model.add(BatchNormalization())
     model.add(ELU())
     model.add(Convolution2D(16, 5, 5, subsample=(4, 4), border_mode="same",
-                            init = 'he_normal'))
+                            init='he_normal'))
     model.add(BatchNormalization())
     model.add(ELU())
     model.add(Convolution2D(32, 3, 3, subsample=(2, 2), border_mode="same",
-                            init = 'he_normal'))
+                            init='he_normal'))
     model.add(BatchNormalization())
     model.add(ELU())
-    model.add(Convolution2D(64, 3, 3, subsample=(2, 2), border_mode="same", 
-                            init = 'he_normal'))
+    model.add(Convolution2D(64, 3, 3, subsample=(2, 2), border_mode="same",
+                            init='he_normal'))
     model.add(Flatten())
     model.add(Dropout(.2))
     model.add(ELU())
@@ -110,16 +115,17 @@ def make_commaai2():
 
     return model
 
+
 def make_nvidia():
     """
     Creates nVidea Autonomous Car Group model
     """
     model = make_preprocess_layers()
-    model.add(Convolution2D(24,5,5, subsample=(2,2), activation='relu'))
-    model.add(Convolution2D(36,5,5, subsample=(2,2), activation='relu'))
-    model.add(Convolution2D(48,5,5, subsample=(2,2), activation='relu'))
-    model.add(Convolution2D(64,3,3, activation='relu'))
-    model.add(Convolution2D(64,3,3, activation='relu'))
+    model.add(Convolution2D(24, 5, 5, subsample=(2, 2), activation='relu'))
+    model.add(Convolution2D(36, 5, 5, subsample=(2, 2), activation='relu'))
+    model.add(Convolution2D(48, 5, 5, subsample=(2, 2), activation='relu'))
+    model.add(Convolution2D(64, 3, 3, activation='relu'))
+    model.add(Convolution2D(64, 3, 3, activation='relu'))
     model.add(Flatten())
     model.add(Dense(100))
     model.add(Dense(50))
@@ -128,10 +134,13 @@ def make_nvidia():
 
     return model
 
+
 def csv2samples(path, file):
     """
     Read a csv file and save into a list
     The format of sample : [path, steering, image type]
+    The samples are appended in center, left, right order so that we could use
+    filter to filter the steerings
     """
     samples_raw = []
     with open(path + file) as csvfile:
@@ -140,12 +149,16 @@ def csv2samples(path, file):
             samples_raw.append(line)
 
     samples = []
+    samples_l = []
+    samples_c = []
+    samples_r = []
     for row in samples_raw:
         steering = float(row[3])
-        samples.append([path + row[CENTER_IMAGE], steering, CENTER_IMAGE])
-        if abs(steering) > 0.01:
-            samples.append([path + row[LEFT_IMAGE], steering, LEFT_IMAGE])
-            samples.append([path + row[RIGHT_IMAGE], steering, RIGHT_IMAGE])
+        samples_c.append([path + row[CENTER_IMAGE], steering, CENTER_IMAGE])
+        # if abs(steering) > 0.01:
+        samples_l.append([path + row[LEFT_IMAGE], steering, LEFT_IMAGE])
+        samples_r.append([path + row[RIGHT_IMAGE], steering, RIGHT_IMAGE])
+    samples = samples_c + samples_l + samples_r
     print("Read ", len(samples))
     return samples
 
@@ -186,46 +199,86 @@ def augment_steering(samples, steering_center=0, steering_left=0, steering_right
     return samples
 
 
-def reduce_straight_steering(samples, keep_ratio=0.5):
-    keep_num = len(samples) * keep_ratio
-    new_samples = []
-    straight_count = 0
+def reduce_straight_steering(samples, keep_ratio=0.2):
+    """
+    Down sample the straight steering data
+    """
+    straight_samples = []
+    steering_samples = []
+
     for sample in samples:
         if abs(sample[INDEX_STEER]) < 0.01:
-            if straight_count < keep_num:
-                new_samples.append(sample)
-                straight_count += 1
+            straight_samples.append(sample)
         else:
-            new_samples.append(sample)
-    return new_samples
+            steering_samples.append(sample)
+
+    step = int(1/keep_ratio)
+    step = min((len(straight_samples)),max(1,step))
+    # print("straight = ",len(straight_samples),"step = ",step)
+    straight_samples_new = [straight_samples[i]
+                            for i in range(0, len(straight_samples), step)]
+    samples_new = straight_samples_new + steering_samples
+    print("Samples are reduce from ",len(samples)," to ",len(samples_new))
+    return samples_new
 
 
 def plot_steering_distribution(samples):
     num = int(200)
-    bars = [i * 0.1 for i in range(int(-num/2), int(num/2), 1)]
-    counts = [[0] * num,[0] * num,[0] * num]
+    bars = [i * 0.1 for i in range(int(-num / 2), int(num / 2), 1)]
+    counts = [[0] * num, [0] * num, [0] * num]
     for sample in samples:
-        index = int(int(sample[INDEX_STEER] * num/2) + num/2)
+        index = int(int(sample[INDEX_STEER] * num / 2) + num / 2)
         index = min(max(0, index), num - 1)
         type_ = sample[INDEX_TYPE]
         counts[type_][index] = counts[type_][index] + 1
-    plt.figure(figsize=(15,3))
-    plt.subplot(1,3,1)
-    plt.bar(bars, counts[0],color='r', label='center')
-    plt.subplot(1,3,2)
-    plt.bar(bars, counts[1],color='g', label='left')
-    plt.subplot(1,3,3)
-    plt.bar(bars, counts[2],color='b', label='right')
+    plt.figure(figsize=(15, 3))
+    plt.subplot(1, 3, 1)
+    plt.bar(bars, counts[0], color='r', label='center')
+    plt.subplot(1, 3, 2)
+    plt.bar(bars, counts[1], color='g', label='left')
+    plt.subplot(1, 3, 3)
+    plt.bar(bars, counts[2], color='b', label='right')
     plt.show()
+
 
 def plot_steering_over_time(samples):
     steering = []
     for sample in samples:
-        if sample[INDEX_TYPE]==CENTER_IMAGE:
+        if sample[INDEX_TYPE] == CENTER_IMAGE:
             steering.append(sample[INDEX_STEER])
-    plt.figure(figsize=(30,8))
-    plt.plot(steering,'r')
+    plt.figure(figsize=(30, 8))
+    plt.plot(steering, 'r')
     plt.show()
+
+
+def filter_steering(samples, plot=False):
+    weight = 0.4
+    gain = 1.0
+    steering_f = 0
+
+    # BUG! Python never creates a new copy of the list for some reason! Maybe because
+    # a list of list is complicated and python never does a deep copy!
+    # filtered_samples = samples.copy()
+    # filtered_samples = samples[:]
+    
+    filtered_samples = []
+    for sample in samples:
+        sample_ = sample[:]
+        steering_f = steering_f * (1 - weight) + sample_[INDEX_STEER] * weight
+        sample_[INDEX_STEER] = steering_f
+        filtered_samples.append(sample_)
+
+
+    if plot:
+        plot_length = int(len(samples)/3)
+        steerings = [sample[INDEX_STEER] for sample in samples[0:plot_length]]
+        steerings_f = [sample[INDEX_STEER] for sample in filtered_samples[0:plot_length]]
+        plt.figure(figsize=(30, 8))
+        plt.plot(steerings, 'r', steerings_f, 'b')
+        plt.show()
+
+    return filtered_samples
+
 
 # def plot_steering_distribution(samples):
 #     bars = [i * 0.1 for i in range(-100, 100, 1)]
@@ -236,39 +289,29 @@ def plot_steering_over_time(samples):
 #         counts[index] = counts[index] + 1
 #     center=plt.bar(bars, counts,color='r', label='center')
 #     plt.show()
-    
 
 
-def preproccess_samples(samples, file_num=10000):
-    shuffle(samples)
+def preproccess_samples(samples, plot=False):
+    filter_steering(samples, plot)
     # plot_steering_distribution(samples)
     samples = reduce_straight_steering(samples, 0.3)
     # plot_steering_distribution(samples)
     samples = augment_steering(samples, 0, 0.25, -0.25)
+    shuffle(samples)
 
-    # samples1 = csv2samples(path + "track1-center/", "driving_log.csv")
-    # samples1 = augment_steering(samples1, 0, 0.25,-0.25)
-
-    # samples= samples + samples1
-    # shuffle(samples)
-    # # plot_steering_distribution(samples)
-    # samples = reduce_straight_steering(samples,0.3)
-    # # plot_steering_distribution(samples)
-
-    if len(samples) > file_num:
-        print("Read ", len(samples), " files, only use first", file_num, " ones")
-        samples = samples[0:file_num]
     return samples
 
 
-def generate_train_data2(path, plot =False):
+def generate_train_data2(path, plot=False):
     samples = csv2samples(path + "track1-center1/", "driving_log.csv")
-    if plot :
+    if plot:
         plot_steering_distribution(samples)
-        plot_steering_over_time(samples)
+        # plot_steering_over_time(samples)
+
     # samples1 = csv2samples(path + "track1-center1/", "driving_log.csv")
     # plot_steering_distribution(samples1)
     # samples = samples + samples1
+
     samples = preproccess_samples(samples)
     if plot:
         plot_steering_distribution(samples)
