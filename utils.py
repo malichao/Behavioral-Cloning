@@ -3,7 +3,7 @@ import cv2
 import csv
 import sklearn
 import numpy as np
-from random import shuffle
+from random import shuffle,random
 from sklearn.model_selection import train_test_split
 from keras.models import Sequential
 from keras.layers import Cropping2D, ELU
@@ -64,6 +64,31 @@ def make_commaai():
     return model
 
 
+def make_nvidia():
+    """
+    Creates nVidea Autonomous Car Group model
+    """
+    model = Sequential()
+    model.add(Lambda(lambda x: x / 255. - .5, input_shape=(160, 320, 3)))
+    # Crop 50 rows from the top, 20 rows from the bottom
+    # Crop 0 columns from the left, 0 columns from the right
+    model.add(Cropping2D(cropping=((60, 23), (0, 0)), input_shape=(160, 320, 3)))
+    model.add(Convolution2D(24, 5, 5, subsample=(2, 2), activation='relu'))
+    model.add(Convolution2D(36, 5, 5, subsample=(2, 2), activation='relu'))
+    model.add(Convolution2D(48, 5, 5, subsample=(2, 2), activation='relu'))
+    model.add(Convolution2D(64, 3, 3, activation='relu'))
+    model.add(Convolution2D(64, 3, 3, activation='relu'))
+    model.add(Flatten())
+    model.add(Dense(100))
+    #model.add(Dropout(.5))
+    model.add(Dense(50))
+    #model.add(Dropout(.5))
+    model.add(Dense(10))
+    #model.add(Dropout(.5))
+    model.add(Dense(1))
+
+    return model
+
 def csv2samples(path, file):
     """
     Read a csv file and save into a list
@@ -79,9 +104,9 @@ def csv2samples(path, file):
     for row in samples_raw:
         steering = float(row[3])
         samples.append([path + row[CENTER_IMAGE], steering, CENTER_IMAGE])
-        if abs(steering) > 0.01:
-            samples.append([path + row[LEFT_IMAGE], steering, LEFT_IMAGE])
-            samples.append([path + row[RIGHT_IMAGE], steering, RIGHT_IMAGE])
+        # if abs(steering) > 0.01:
+        samples.append([path + row[LEFT_IMAGE], steering, LEFT_IMAGE])
+        samples.append([path + row[RIGHT_IMAGE], steering, RIGHT_IMAGE])
     print("Read ", len(samples))
     return samples
 
@@ -99,8 +124,11 @@ def generator(samples, batch_size=32):
             batch_samples = samples[offset:offset + batch_size]
             for batch_sample in batch_samples:
                 image = cv2.imread(batch_sample[INDEX_PATH])
-                images.append(image)
                 mea = batch_sample[INDEX_STEER]
+                # if random()<0.5:
+                #     mea=-mea
+                #     image=np.fliplr(image)
+                images.append(image)
                 measurements.append(mea)
 
             # trim image to only see section with road
@@ -168,9 +196,9 @@ def plot_steering_distribution(samples):
 def preproccess_samples(samples, file_num=10000):
     shuffle(samples)
     # plot_steering_distribution(samples)
-    samples = reduce_straight_steering(samples, 0.3)
+    #samples = reduce_straight_steering(samples, 0.9)
     # plot_steering_distribution(samples)
-    samples = augment_steering(samples, 0, 0.5, -0.5)
+    samples = augment_steering(samples, 0, 0.15, -0.15)
 
     # samples1 = csv2samples(path + "track1-center/", "driving_log.csv")
     # samples1 = augment_steering(samples1, 0, 0.25,-0.25)
@@ -191,7 +219,7 @@ def generate_train_data2(path):
     samples = csv2samples(path + "track1-center/", "driving_log.csv")
     # plot_steering_distribution(samples)
     # samples1 = csv2samples(path + "track1-center1/", "driving_log.csv")
-    # plot_steering_distribution(samples1)
+    # # plot_steering_distribution(samples1)
     # samples = samples + samples1
     samples = preproccess_samples(samples)
     # plot_steering_distribution(samples)
