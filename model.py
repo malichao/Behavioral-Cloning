@@ -7,7 +7,7 @@ from keras import  optimizers
 
 model = utils.make_nvidia()
 #model = utils.make_commaai()
-sgd = optimizers.SGD(lr=0.005,decay=1e-6,momentum=0.9,nesterov=True)
+sgd = optimizers.SGD(lr=0.001,decay=1e-6,momentum=0.9,nesterov=True)
 model.compile(loss='mse', optimizer=sgd)
 
 # # My simple sample reading
@@ -22,12 +22,12 @@ train_generator, validation_generator, train_size, valid_size = \
 checkpoint = ModelCheckpoint('model-{epoch:03d}.h5',
                              monitor='val_loss',
                              verbose=0,
-                             save_best_only=True,
+                             save_best_only=False,
                              mode='auto')
 
 model.fit_generator(train_generator, samples_per_epoch=train_size,
                     validation_data=validation_generator,
-                    nb_val_samples=valid_size, nb_epoch=15, callbacks=[checkpoint])
+                    nb_val_samples=valid_size, nb_epoch=20, callbacks=[checkpoint])
 
 model.save("model.h5")
 
