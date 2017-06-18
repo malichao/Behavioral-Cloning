@@ -23,6 +23,13 @@ INDEX_PATH = 0
 INDEX_STEER = 1
 INDEX_TYPE = 2
 
+def make_preprocess_layers():
+    model = Sequential()
+    model.add(Lambda(lambda x: x / 255. - .5, input_shape=(160, 320, 3)))
+    # Crop 50 rows from the top, 20 rows from the bottom
+    # Crop 0 columns from the left, 0 columns from the right
+    model.add(Cropping2D(cropping=((60, 36), (0, 0)), input_shape=(160, 320, 3)))
+    return model
 
 def make_lenet():
     """
@@ -68,11 +75,7 @@ def make_nvidia():
     """
     Creates nVidea Autonomous Car Group model
     """
-    model = Sequential()
-    model.add(Lambda(lambda x: x / 255. - .5, input_shape=(160, 320, 3)))
-    # Crop 50 rows from the top, 20 rows from the bottom
-    # Crop 0 columns from the left, 0 columns from the right
-    model.add(Cropping2D(cropping=((60, 23), (0, 0)), input_shape=(160, 320, 3)))
+    model = make_preprocess_layers()
     model.add(Convolution2D(24, 5, 5, subsample=(2, 2), activation='relu'))
     model.add(Convolution2D(36, 5, 5, subsample=(2, 2), activation='relu'))
     model.add(Convolution2D(48, 5, 5, subsample=(2, 2), activation='relu'))
@@ -213,20 +216,7 @@ def plot_steering_distribution(samples):
     plt.bar(bars, counts[2],color='b', label='right')
     plt.show()
 
-# def plot_steering_distribution(samples):
-#     bars = [i * 0.1 for i in range(-100, 100, 1)]
-#     counts = [0] * 200
-#     for sample in samples:
-#         index = int(sample[INDEX_STEER] * 100) + 100
-#         index = min(max(0, index), len(counts) - 1)
-#         counts[index] = counts[index] + 1
-#     center=plt.bar(bars, counts,color='r', label='center')
-#     plt.show()
-    
-
 def running_mean(x, N):
-    # cumsum = np.cumsum(np.insert(x, 0, 0)) 
-    # return (cumsum[N:] - cumsum[:-N]) / N 
     # modes = ['full', 'same', 'valid']
     x_ = [s*1.2 for s in x]
     return np.convolve(x_, np.ones((N,))/N, mode='same')
@@ -253,41 +243,7 @@ def filter_steering(samples, N, plot=False):
 
     return filtered_samples
 
-# def filter_steering(samples, plot=False):
-#     weight = 0.5
-#     gain = 1.1
-#     steering_f = 0
-
-#     print("Filter the steering with weight=", weight)
-
-#     # BUG! Python never creates a new copy of the list for some reason! Maybe because
-#     # a list of list is complicated and python never does a deep copy!
-#     # filtered_samples = samples.copy()
-#     # filtered_samples = samples[:]
-
-#     filtered_samples = []
-#     for sample in samples:
-#         sample_ = sample[:]
-#         steering_f = steering_f * (1 - weight) + sample_[INDEX_STEER] * weight
-#         steering_f = steering_f*gain
-#         sample_[INDEX_STEER] = steering_f
-#         filtered_samples.append(sample_)
-
-#     if plot:
-#         plot_length = int(len(samples) / 3)
-#         steerings = [sample[INDEX_STEER] for sample in samples[0:plot_length]]
-#         steerings_f = [sample[INDEX_STEER]
-#                        for sample in filtered_samples[0:plot_length]]
-#         plt.figure(figsize=(30, 8))
-#         plt.plot(steerings, 'r', steerings_f, 'b')
-#         plt.show()
-
-#     return filtered_samples
-
 def preproccess_samples(samples, plot=False):
-    # plot_steering_distribution(samples)
-    #samples = reduce_straight_steering(samples, 0.9)
-    # plot_steering_distribution(samples)
     samples = reduce_straight_steering(samples, 3, plot)
     samples = filter_steering(samples,50, plot)
     # samples = reduce_straight_steering(samples, 3, plot)
