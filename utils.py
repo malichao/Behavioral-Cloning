@@ -3,7 +3,7 @@ import cv2
 import csv
 import sklearn
 import numpy as np
-from random import shuffle,random
+from random import shuffle, random
 from sklearn.model_selection import train_test_split
 from keras.models import Sequential
 from keras.layers import Cropping2D, ELU
@@ -23,6 +23,7 @@ INDEX_PATH = 0
 INDEX_STEER = 1
 INDEX_TYPE = 2
 
+
 def make_preprocess_layers():
     model = Sequential()
     model.add(Lambda(lambda x: x / 255. - .5, input_shape=(160, 320, 3)))
@@ -30,6 +31,7 @@ def make_preprocess_layers():
     # Crop 0 columns from the left, 0 columns from the right
     model.add(Cropping2D(cropping=((60, 36), (0, 0)), input_shape=(160, 320, 3)))
     return model
+
 
 def make_lenet():
     """
@@ -83,22 +85,24 @@ def make_nvidia():
     model.add(Convolution2D(64, 3, 3, activation='relu'))
     model.add(Flatten())
     model.add(Dense(100))
-    #model.add(Dropout(.5))
+    # model.add(Dropout(.5))
     model.add(Dense(50))
-    #model.add(Dropout(.5))
+    # model.add(Dropout(.5))
     model.add(Dense(10))
-    #model.add(Dropout(.5))
+    # model.add(Dropout(.5))
     model.add(Dense(1))
 
     return model
 
-def csv2samples(path, file):
+
+def csv2samples(path):
     """
     Read a csv file and save into a list
     The format of sample : [path, steering, image type]
     The samples are appended in center, left, right order so that we could use
     filter to filter the steerings
     """
+    file = "driving_log.csv"
     samples_raw = []
     with open(path + file) as csvfile:
         reader = csv.reader(csvfile)
@@ -167,26 +171,27 @@ def reduce_straight_steering(samples, step=0, plot=False):
         return samples
 
     samples_new = []
-    count=0
+    count = 0
 
     for sample in samples:
         if abs(sample[INDEX_STEER]) < 0.01:
-            count= count+1
+            count = count + 1
             if count >= step:
                 count = 0
                 samples_new.append(sample)
         else:
-            count=0
+            count = 0
             samples_new.append(sample)
 
     print("Samples are reduce from ", len(samples), " to ", len(samples_new))
     plot_steering_over_time(samples_new, plot)
     return samples_new
 
+
 def plot_steering_over_time(samples, plot=False):
     if plot == False:
         return
-    steerings = [[],[],[]]
+    steerings = [[], [], []]
     for sample in samples:
         if sample[INDEX_TYPE] == CENTER_IMAGE:
             steerings[0].append(sample[INDEX_STEER])
@@ -194,40 +199,48 @@ def plot_steering_over_time(samples, plot=False):
             steerings[1].append(sample[INDEX_STEER])
         else:
             steerings[2].append(sample[INDEX_STEER])
-            
+
     plt.figure(figsize=(30, 8))
-    plt.plot(steerings[0], 'r',steerings[1], 'g',steerings[2], 'b')
+    plt.plot(steerings[0], 'r', steerings[1], 'g', steerings[2], 'b')
     plt.show()
+
 
 def plot_steering_distribution(samples):
     num = int(200)
-    bars = [i * 0.1 for i in range(int(-num/2), int(num/2), 1)]
-    counts = [[0] * num,[0] * num,[0] * num]
+    bars = [i * 0.1 for i in range(int(-num / 2), int(num / 2), 1)]
+    counts = [[0] * num, [0] * num, [0] * num]
     for sample in samples:
-        index = int(int(sample[INDEX_STEER] * num/2) + num/2)
+        index = int(int(sample[INDEX_STEER] * num / 2) + num / 2)
         index = min(max(0, index), num - 1)
         type_ = sample[INDEX_TYPE]
         counts[type_][index] = counts[type_][index] + 1
-    plt.subplot(1,3,1)
-    plt.bar(bars, counts[0],color='r', label='center')
-    plt.subplot(1,3,2)
-    plt.bar(bars, counts[1],color='g', label='left')
-    plt.subplot(1,3,3)
-    plt.bar(bars, counts[2],color='b', label='right')
+    plt.subplot(1, 3, 1)
+    plt.bar(bars, counts[0], color='r', label='center')
+    plt.subplot(1, 3, 2)
+    plt.bar(bars, counts[1], color='g', label='left')
+    plt.subplot(1, 3, 3)
+    plt.bar(bars, counts[2], color='b', label='right')
     plt.show()
+
 
 def running_mean(x, N):
     # modes = ['full', 'same', 'valid']
-    x_ = [s*1.2 for s in x]
-    return np.convolve(x_, np.ones((N,))/N, mode='same')
+    x_ = [s * 1.1 for s in x]
+    # x_ = x
+    return np.convolve(x_, np.ones((N,)) / N, mode='same')
 
 
 def filter_steering(samples, N, plot=False):
     steerings = [sample[INDEX_STEER] for sample in samples]
-    new_steerings = running_mean(steerings,N)
+    new_steerings = running_mean(steerings, N)
+    new_steerings = running_mean(new_steerings, int(N/2))
+    # new_steerings = running_mean(new_steerings, int(N/4))
+    # new_steerings = running_mean(new_steerings, int(N/8))
+
+    # new_steerings = running_mean(steerings, N)
     filtered_samples = []
     # print("{} -> {}".format(len(steerings),len(new_steerings)))
-    for sample,steering in zip(samples,new_steerings):
+    for sample, steering in zip(samples, new_steerings):
         sample_ = sample[:]
         sample_[INDEX_STEER] = steering
         filtered_samples.append(sample_)
@@ -243,31 +256,26 @@ def filter_steering(samples, N, plot=False):
 
     return filtered_samples
 
-def preproccess_samples(samples, plot=False):
-    samples = reduce_straight_steering(samples, 3, plot)
-    samples = filter_steering(samples,50, plot)
-    # samples = reduce_straight_steering(samples, 3, plot)
-    samples = augment_steering(samples, 0, 0.15, -0.15)    
-    plot_steering_over_time(samples,plot)
-    shuffle(samples)
 
+def preproccess_samples(samples, plot=False):
+    samples = reduce_straight_steering(samples, 2, plot)
+    samples = filter_steering(samples, 32, plot)
+    # samples = reduce_straight_steering(samples, 3, plot)
+    samples = augment_steering(samples, 0, 0.1, -0.1)
+    plot_steering_over_time(samples, plot)
+    shuffle(samples)
     return samples
 
+def load_data(path, plot=False):
+    samples = csv2samples(path)
+    samples = preproccess_samples(samples, plot)
+    return samples
 
-def generate_train_data2(path, plot=False):
-    samples = csv2samples(path + "track1-center1/", "driving_log.csv")
-    # plot_steering_distribution(samples)
-    # samples1 = csv2samples(path + "track1-after-bridge/", "driving_log.csv")
-    # # plot_steering_distribution(samples1)
-    samples = preproccess_samples(samples,plot)
-    # samples1 = preproccess_samples(samples1,plot)
-    # samples = samples +samples1
-    # plot_steering_distribution(samples)
+def generate_train_data(samples):
     train_samples, validation_samples = train_test_split(
         samples, test_size=0.2)
     train_size = len(train_samples)
     validation_size = len(validation_samples)
-    print("Read ", len(samples), " samples")
     print("train_samples      = ", train_size)
     print("validation_samples = ", validation_size)
 
@@ -283,30 +291,4 @@ def generate_train_data2(path, plot=False):
     validation_generator = generator(
         validation_samples, batch_size=BATCH_SIZE)
 
-    print("samples_per_epoch", len(train_samples))
     return train_generator, validation_generator, len(train_samples), len(validation_samples)
-
-
-def generate_train_data(path):
-    """
-    Generate a fix batch of random training data from a path
-    """
-    samples = csv2samples(path + "track1-center/", "driving_log.csv")
-    samples = preproccess_samples(samples)
-
-    images = []
-    measurements = []
-    for sample in samples:
-        image = cv2.imread(sample[0])
-        images.append(image)
-        measurements.append(sample[1])
-
-        # Flip the image
-        images.append(np.fliplr(image))
-        measurements.append(-sample[1])
-
-    X_train = np.array(images)
-    y_train = np.array(measurements)
-    print("X_train = ", X_train.shape)
-    print("y_train = ", y_train.shape)
-    return X_train, y_train
