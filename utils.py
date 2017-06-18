@@ -136,9 +136,9 @@ def generator(samples, batch_size=32):
             for batch_sample in batch_samples:
                 image = cv2.imread(batch_sample[INDEX_PATH])
                 mea = batch_sample[INDEX_STEER]
-                # if random()<0.5:
-                #     mea=-mea
-                #     image=np.fliplr(image)
+                if random()<0.5:
+                    mea=-mea
+                    image=np.fliplr(image)
                 images.append(image)
                 measurements.append(mea)
 
