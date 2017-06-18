@@ -11,6 +11,7 @@ from keras.layers.core import Dense, Activation, Flatten, Dropout, Lambda
 from keras.layers.convolutional import Convolution2D
 from keras.layers.pooling import MaxPooling2D
 from sklearn.model_selection import train_test_split
+from keras.layers.normalization import BatchNormalization
 
 import matplotlib.pyplot as plt
 # Image type definition in samples
@@ -37,11 +38,7 @@ def make_lenet():
     """
     Build a LeNet model using keras
     """
-    model = Sequential()
-    model.add(Lambda(lambda x: x / 255. - .5, input_shape=(160, 320, 3)))
-    # Crop 50 rows from the top, 20 rows from the bottom
-    # Crop 0 columns from the left, 0 columns from the right
-    model.add(Cropping2D(cropping=((60, 23), (0, 0)), input_shape=(160, 320, 3)))
+    model = make_preprocess_layers()
     model.add(Convolution2D(6, 5, 5, activation="relu"))
     model.add(MaxPooling2D())
     model.add(Convolution2D(6, 5, 5, activation="relu"))
@@ -55,8 +52,10 @@ def make_lenet():
 
 
 def make_commaai():
-    model = Sequential()
-    model.add(Lambda(lambda x: x / 255. - .5, input_shape=(160, 320, 3)))
+    # model = Sequential()
+    # model.add(Lambda(lambda x: x / 255. - .5, input_shape=(160, 320, 3)))
+    model = make_preprocess_layers()
+    
     model.add(Convolution2D(16, 8, 8, subsample=(4, 4), border_mode="same"))
     model.add(ELU())
     model.add(Convolution2D(32, 5, 5, subsample=(2, 2), border_mode="same"))
@@ -93,7 +92,6 @@ def make_nvidia():
     model.add(Dense(1))
 
     return model
-
 
 def csv2samples(path):
     """
@@ -258,9 +256,8 @@ def filter_steering(samples, N, plot=False):
 
 
 def preproccess_samples(samples, plot=False):
-    samples = reduce_straight_steering(samples, 2, plot)
+    # samples = reduce_straight_steering(samples, 2, plot)
     samples = filter_steering(samples, 32, plot)
-    # samples = reduce_straight_steering(samples, 3, plot)
     samples = augment_steering(samples, 0, 0.1, -0.1)
     plot_steering_over_time(samples, plot)
     shuffle(samples)
