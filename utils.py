@@ -30,7 +30,7 @@ def make_preprocess_layers():
     model.add(Lambda(lambda x: x / 255. - .5, input_shape=(160, 320, 3)))
     # Crop 50 rows from the top, 20 rows from the bottom
     # Crop 0 columns from the left, 0 columns from the right
-    model.add(Cropping2D(cropping=((60, 36), (0, 0)), input_shape=(160, 320, 3)))
+    model.add(Cropping2D(cropping=((60, 20), (0, 0)), input_shape=(160, 320, 3)))
     return model
 
 
@@ -55,7 +55,7 @@ def make_commaai():
     # model = Sequential()
     # model.add(Lambda(lambda x: x / 255. - .5, input_shape=(160, 320, 3)))
     model = make_preprocess_layers()
-    
+
     model.add(Convolution2D(16, 8, 8, subsample=(4, 4), border_mode="same"))
     model.add(ELU())
     model.add(Convolution2D(32, 5, 5, subsample=(2, 2), border_mode="same"))
@@ -93,6 +93,7 @@ def make_nvidia():
 
     return model
 
+
 def csv2samples(path):
     """
     Read a csv file and save into a list
@@ -121,6 +122,28 @@ def csv2samples(path):
     print("Read ", len(samples))
     return samples
 
+def random_shear(image,steering,shear_range=100):
+    rows,cols,ch = image.shape
+    dx = np.random.randint(-shear_range,shear_range+1)
+    #    print('dx',dx)
+    random_point = [cols/2+dx,rows/2]
+    pts1 = np.float32([[0,rows],[cols,rows],[cols/2,rows/2]])
+    pts2 = np.float32([[0,rows],[cols,rows],random_point])
+    dsteering = dx/(rows/2) * 360/(2*np.pi*25.0) / 6.0    
+    M = cv2.getAffineTransform(pts1,pts2)
+    image = cv2.warpAffine(image,M,(cols,rows),borderMode=1)
+    steering +=dsteering
+    
+    return image,steering
+
+def augment_data(image, steering):
+    if random() < 0.5:
+        steering = -steering
+        image = np.fliplr(image)
+    if random() < .5:
+        image,steering= random_shear(image,steering)
+    return image, steering
+
 
 def generator(samples, batch_size=32):
     """
@@ -136,9 +159,7 @@ def generator(samples, batch_size=32):
             for batch_sample in batch_samples:
                 image = cv2.imread(batch_sample[INDEX_PATH])
                 mea = batch_sample[INDEX_STEER]
-                if random()<0.5:
-                    mea=-mea
-                    image=np.fliplr(image)
+                image, mea = augment_data(image,mea)
                 images.append(image)
                 measurements.append(mea)
 
@@ -186,7 +207,7 @@ def reduce_straight_steering(samples, step=0, plot=False):
     return samples_new
 
 
-def plot_steering_over_time(samples, plot=False):
+def plot_steering_over_time(samples, plot=True):
     if plot == False:
         return
     steerings = [[], [], []]
@@ -203,15 +224,18 @@ def plot_steering_over_time(samples, plot=False):
     plt.show()
 
 
-def plot_steering_distribution(samples):
+def plot_steering_distribution(samples, plot=True):
+    if plot == False:
+        return
     num = int(200)
     bars = [i * 0.1 for i in range(int(-num / 2), int(num / 2), 1)]
     counts = [[0] * num, [0] * num, [0] * num]
     for sample in samples:
-        index = int(int(sample[INDEX_STEER] * num / 2) + num / 2)
-        index = min(max(0, index), num - 1)
+        index = int((sample[INDEX_STEER] +1.0) * num / 2)
+        # index = min(max(0, index), num - 1)
         type_ = sample[INDEX_TYPE]
         counts[type_][index] = counts[type_][index] + 1
+    plt.figure(figsize=(16, 4))
     plt.subplot(1, 3, 1)
     plt.bar(bars, counts[0], color='r', label='center')
     plt.subplot(1, 3, 2)
@@ -231,7 +255,7 @@ def running_mean(x, N):
 def filter_steering(samples, N, plot=False):
     steerings = [sample[INDEX_STEER] for sample in samples]
     new_steerings = running_mean(steerings, N)
-    new_steerings = running_mean(new_steerings, int(N/2))
+    new_steerings = running_mean(new_steerings, int(N / 2))
     # new_steerings = running_mean(new_steerings, int(N/4))
     # new_steerings = running_mean(new_steerings, int(N/8))
 
@@ -256,29 +280,50 @@ def filter_steering(samples, N, plot=False):
 
 
 def preproccess_samples(samples, plot=False):
-    # samples = reduce_straight_steering(samples, 2, plot)
-    samples = filter_steering(samples, 32, plot)
-    samples = augment_steering(samples, 0, 0.1, -0.1)
+    # samples = reduce_straight_steering(samples, 3, plot)
+    samples = filter_steering(samples, 50, plot)
+    samples = augment_steering(samples, 0, 0.15, -0.15)
     plot_steering_over_time(samples, plot)
+    plot_steering_distribution(samples, plot)
     shuffle(samples)
     return samples
+
 
 def load_data(path, plot=False):
     samples = csv2samples(path)
     samples = preproccess_samples(samples, plot)
     return samples
 
+def load_correction(path,steering=-0.15):
+    files = os.listdir(path)
+    files = [os.path.join(path, file) for file in files]
+    samples = []
+    for file in files:
+        samples.append([file, steering, CENTER_IMAGE])
+    shuffle(samples)
+    return samples
+
 def generate_train_data(samples):
     train_samples, validation_samples = train_test_split(
-        samples, test_size=0.2)
+        samples, test_size=0.4)
+
+    validation_samples_new = []
+    for sample in validation_samples:
+        if sample[INDEX_TYPE]==CENTER_IMAGE:
+            validation_samples_new.append(sample)
+    print("Val set: {}->{}".format(len(validation_samples),len(validation_samples_new)))
+    validation_samples=validation_samples_new
+
     train_size = len(train_samples)
     validation_size = len(validation_samples)
     print("train_samples      = ", train_size)
     print("validation_samples = ", validation_size)
 
     BATCH_SIZE = 32
-    train_size = int(train_size / BATCH_SIZE) * BATCH_SIZE
-    validation_size = int(validation_size / BATCH_SIZE) * BATCH_SIZE
+    if train_size > BATCH_SIZE:
+        train_size = int(train_size / BATCH_SIZE) * BATCH_SIZE
+    if validation_size > BATCH_SIZE:
+        validation_size = int(validation_size / BATCH_SIZE) * BATCH_SIZE
     train_samples = train_samples[0:train_size]
     validation_samples = validation_samples[0:validation_size]
     print("Resize sample size to avoid Keras warning")
