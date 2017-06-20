@@ -89,7 +89,7 @@ def main():
     
 
     val_samples = utils.csv2samples("data/track1-val/")
-    val_samples = utils.filter_steering(val_samples,50)
+    val_samples = utils.preprocess_samples(val_samples)
 
     train_generator, validation_generator, train_size, valid_size = \
         utils.generate_train_data(samples,val_samples)
