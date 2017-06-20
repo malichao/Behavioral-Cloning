@@ -1,6 +1,9 @@
 import os
 import cv2
 import csv
+import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
+from PIL import Image
 import sklearn
 import numpy as np
 from random import shuffle, random
@@ -12,8 +15,8 @@ from keras.layers.convolutional import Convolution2D
 from keras.layers.pooling import MaxPooling2D
 from sklearn.model_selection import train_test_split
 from keras.layers.normalization import BatchNormalization
+from keras.models import load_model
 
-import matplotlib.pyplot as plt
 # Image type definition in samples
 CENTER_IMAGE = int(0)
 LEFT_IMAGE = int(1)
@@ -116,8 +119,8 @@ def csv2samples(path):
         steering = float(row[3])
         samples_c.append([path + row[CENTER_IMAGE], steering, CENTER_IMAGE])
         # if abs(steering) > 0.01:
-        samples_l.append([path + row[LEFT_IMAGE], steering, LEFT_IMAGE])
-        samples_r.append([path + row[RIGHT_IMAGE], steering, RIGHT_IMAGE])
+        # samples_l.append([path + row[LEFT_IMAGE], steering, LEFT_IMAGE])
+        # samples_r.append([path + row[RIGHT_IMAGE], steering, RIGHT_IMAGE])
     samples = samples_c + samples_l + samples_r
     print("Read ", len(samples))
     return samples
@@ -282,7 +285,7 @@ def filter_steering(samples, N, plot=False):
 def preproccess_samples(samples, plot=False):
     # samples = reduce_straight_steering(samples, 3, plot)
     samples = filter_steering(samples, 50, plot)
-    samples = augment_steering(samples, 0, 0.15, -0.15)
+    # samples = augment_steering(samples, 0, 0.1, -0.1)
     plot_steering_over_time(samples, plot)
     plot_steering_distribution(samples, plot)
     shuffle(samples)
@@ -319,11 +322,11 @@ def generate_train_data(samples):
     print("train_samples      = ", train_size)
     print("validation_samples = ", validation_size)
 
-    BATCH_SIZE = 32
-    if train_size > BATCH_SIZE:
-        train_size = int(train_size / BATCH_SIZE) * BATCH_SIZE
-    if validation_size > BATCH_SIZE:
-        validation_size = int(validation_size / BATCH_SIZE) * BATCH_SIZE
+    BATCH_SIZE = 100
+    # if train_size > BATCH_SIZE:
+    #     train_size = int(train_size / BATCH_SIZE) * BATCH_SIZE
+    # if validation_size > BATCH_SIZE:
+    #     validation_size = int(validation_size / BATCH_SIZE) * BATCH_SIZE
     train_samples = train_samples[0:train_size]
     validation_samples = validation_samples[0:validation_size]
     print("Resize sample size to avoid Keras warning")
@@ -334,3 +337,62 @@ def generate_train_data(samples):
         validation_samples, batch_size=BATCH_SIZE)
 
     return train_generator, validation_generator, len(train_samples), len(validation_samples)
+
+
+def test_model(model_path,test_path):
+    """
+    Test the model against a test data set and plot the result
+    """
+    model = load_model(model_path)
+    samples = csv2samples(test_path)
+    samples = filter_steering(samples, 50)
+    samples_new = []
+    for sample in samples:
+        if sample[INDEX_TYPE]==CENTER_IMAGE:
+            samples_new.append(sample)
+    
+    samples = samples_new
+    print("Testing prediction on {} images".format(len(samples)))
+
+    results = []
+    gts = []
+    pds = []
+    i,step = 0,50
+    for sample in samples:
+        img = Image.open(sample[INDEX_PATH])
+        image_array = np.asarray(img)
+        steering = float(model.predict(image_array[None, :, :, :], batch_size=1))
+        delta = steering - sample[INDEX_STEER]
+        gts.append(sample[INDEX_STEER])
+        pds.append(steering)
+        img = img.resize((128,64), Image.ANTIALIAS)
+        if i% step ==0:
+            results.append([i, img, sample[INDEX_STEER], steering, delta])
+        i = i+ 1
+        # print("{} {} {}".format(sample[INDEX_PATH],sample[INDEX_STEER],steering,delta))
+
+    print("Plotting results ",len(results))
+
+    plt.figure(figsize=(30, 8))
+    plt.plot(gts, 'r--', pds, 'g')
+    plt.rc('grid', linestyle="--", color='grey')
+    plt.grid(True,'both')
+    plt.show()
+    
+    fig = plt.figure(figsize=(24,12))
+    col = 5
+    row = int(len(results)/col)+1
+    print("Result: [Ground truth | Prediction | Error]")
+    i =1
+    for data in results:
+        plt.subplot(row, col, i)
+        plt.imshow(data[1])
+        plt.axis('off')
+        gt = data[2] *25
+        pd = data[3] *25
+        error = data[4]*100
+        plt.title("{}: {:2.1f},{:2.1f},{:2.1f}%".format(data[0],gt,pd,error),fontsize=20)
+        i = i+1
+    plt.tight_layout()
+    plt.show()
+    print("Test completed")
