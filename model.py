@@ -65,6 +65,7 @@ def main():
     if args.weights :
         model = make_model(args.make_model,args.learning_rate)
         model.load_weights(args.weights+".w")
+        print("Loaded weights from [{}]".format(args.weights+".w"))
     elif args.load_model:
         model = load_model(args.load_model+".h5")
         print("Loaded model from [{}]".format(args.load_model))
@@ -86,8 +87,12 @@ def main():
     print("Saving model to [{}.h5]".format(args.output_name))
     print("Learning rate [{}]".format(args.learning_rate))
     
+
+    val_samples = utils.csv2samples("data/track1-val/")
+    val_samples = utils.filter_steering(val_samples,50)
+
     train_generator, validation_generator, train_size, valid_size = \
-        utils.generate_train_data(samples)
+        utils.generate_train_data(samples,val_samples)
 
     checkpoint = ModelCheckpoint('model-{epoch:03d}.h5',
                                  monitor='val_loss',

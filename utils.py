@@ -196,7 +196,7 @@ def reduce_straight_steering(samples, step=0, plot=False):
     count = 0
 
     for sample in samples:
-        if abs(sample[INDEX_STEER]) < 0.01:
+        if abs(sample[INDEX_STEER]) < 0.03:
             count = count + 1
             if count >= step:
                 count = 0
@@ -224,6 +224,7 @@ def plot_steering_over_time(samples, plot=True):
 
     plt.figure(figsize=(30, 8))
     plt.plot(steerings[0], 'r', steerings[1], 'g', steerings[2], 'b')
+    plt.grid(True)
     plt.show()
 
 
@@ -271,20 +272,22 @@ def filter_steering(samples, N, plot=False):
         filtered_samples.append(sample_)
 
     if plot:
-        plot_length = int(len(samples) / 3)
+        # plot_length = int(len(samples) / 3)
+        plot_length = len(samples)
         steerings = [sample[INDEX_STEER] for sample in samples[0:plot_length]]
         steerings_f = [sample[INDEX_STEER]
                        for sample in filtered_samples[0:plot_length]]
         plt.figure(figsize=(30, 8))
         plt.plot(steerings, 'r', steerings_f, 'b')
+        plt.grid(True)
         plt.show()
 
     return filtered_samples
 
 
 def preproccess_samples(samples, plot=False):
-    # samples = reduce_straight_steering(samples, 3, plot)
     samples = filter_steering(samples, 50, plot)
+    samples = reduce_straight_steering(samples, 3, plot)
     # samples = augment_steering(samples, 0, 0.1, -0.1)
     plot_steering_over_time(samples, plot)
     plot_steering_distribution(samples, plot)
@@ -306,23 +309,17 @@ def load_correction(path,steering=-0.15):
     shuffle(samples)
     return samples
 
-def generate_train_data(samples):
-    train_samples, validation_samples = train_test_split(
-        samples, test_size=0.4)
+def generate_train_data(train_samples,validation_samples):
+    # train_samples, validation_samples = train_test_split(
+    #     samples, test_size=0.2)
 
-    validation_samples_new = []
-    for sample in validation_samples:
-        if sample[INDEX_TYPE]==CENTER_IMAGE:
-            validation_samples_new.append(sample)
-    print("Val set: {}->{}".format(len(validation_samples),len(validation_samples_new)))
-    validation_samples=validation_samples_new
 
     train_size = len(train_samples)
     validation_size = len(validation_samples)
     print("train_samples      = ", train_size)
     print("validation_samples = ", validation_size)
 
-    BATCH_SIZE = 100
+    BATCH_SIZE = 32
     # if train_size > BATCH_SIZE:
     #     train_size = int(train_size / BATCH_SIZE) * BATCH_SIZE
     # if validation_size > BATCH_SIZE:
