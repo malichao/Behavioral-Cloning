@@ -46,7 +46,7 @@ class SimplePIController:
 
 controller = SimplePIController(0.1, 0.002)
 max_speed = 30
-set_speed = 30
+set_speed = 20
 controller.set_desired(set_speed)
 
 
@@ -77,7 +77,6 @@ def telemetry(sid, data):
         if args.image_folder != '':
             timestamp = datetime.utcnow().strftime('%Y_%m_%d_%H_%M_%S_%f')[:-3]
             image_filename = os.path.join(args.image_folder, timestamp)
-            image = Image.fromarray(image_array)
             image.save('{}.jpg'.format(image_filename))
     else:
         # NOTE: DON'T EDIT THIS.
