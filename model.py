@@ -6,6 +6,7 @@ from keras import optimizers
 from keras.models import load_model
 import argparse
 
+
 def make_model(model_type, learning_rate=1e-3):
     if model_type == 'lenet':
         model = utils.make_lenet()
@@ -23,7 +24,8 @@ def make_model(model_type, learning_rate=1e-3):
         print("Error! No such model")
         raise ("Error! No such model")
 
-    sgd = optimizers.SGD(lr=learning_rate, decay=1e-6, momentum=0.9, nesterov=True)
+    sgd = optimizers.SGD(lr=learning_rate, decay=1e-6,
+                         momentum=0.9, nesterov=True)
     model.compile(loss='mse', optimizer=sgd)
     return model
 
@@ -62,15 +64,15 @@ def main():
     # 1.If there is a "weights" file, load it with the given model type
     # 2.If there is a "model" file, load the model, ignore -m option
     # 3.Make a new model
-    if args.weights :
-        model = make_model(args.make_model,args.learning_rate)
-        model.load_weights(args.weights+".w")
-        print("Loaded weights from [{}]".format(args.weights+".w"))
+    if args.weights:
+        model = make_model(args.make_model, args.learning_rate)
+        model.load_weights(args.weights + ".w")
+        print("Loaded weights from [{}]".format(args.weights + ".w"))
     elif args.load_model:
-        model = load_model(args.load_model+".h5")
+        model = load_model(args.load_model + ".h5")
         print("Loaded model from [{}]".format(args.load_model))
     else:
-        model = make_model(args.make_model,args.learning_rate)
+        model = make_model(args.make_model, args.learning_rate)
 
     # path = 'data/track1-center1/'
     if args.data_dir:
@@ -86,13 +88,12 @@ def main():
     print("Training epochs {}".format(args.epochs))
     print("Saving model to [{}.h5]".format(args.output_name))
     print("Learning rate [{}]".format(args.learning_rate))
-    
 
     val_samples = utils.csv2samples("data/track1-val/")
     val_samples = utils.preprocess_samples(val_samples)
 
     train_generator, validation_generator, train_size, valid_size = \
-        utils.generate_train_data(samples,val_samples)
+        utils.generate_train_data(samples, val_samples)
 
     checkpoint = ModelCheckpoint('model-{epoch:03d}.h5',
                                  monitor='val_loss',
@@ -101,11 +102,10 @@ def main():
                                  mode='auto')
 
     model.fit_generator(train_generator, samples_per_epoch=train_size,
-                        validation_data=validation_generator,
                         nb_val_samples=valid_size, nb_epoch=args.epochs, callbacks=[checkpoint])
 
-    model.save(args.output_name+".h5")
-    model.save_weights(args.output_name+".w")
+    model.save(args.output_name + ".h5")
+    model.save_weights(args.output_name + ".w")
 
 
 if __name__ == '__main__':
