@@ -177,9 +177,9 @@ def random_shear(image, steering, shear_range=100):
 
 
 def augment_data(image, steering):
-    # if random() < 0.5:
-    #     steering=-steering
-    #     image=np.fliplr(image)
+    if random() < 0.5:
+        steering=-steering
+        image=np.fliplr(image)
     # if random() < .5:
     #     image,steering= random_shear(image,steering)
     return image, steering
@@ -332,8 +332,8 @@ def filter_steering(samples, N, plot=False):
 
 def preprocess_samples(samples, shuffule_data=True, plot=False):
     samples = filter_steering(samples, 100, plot)
-    samples = reduce_straight_steering(samples, 3, plot)
-    samples = augment_steering(samples, 0, 0.8, -0.8)
+    # samples = reduce_straight_steering(samples, 3, plot)
+    samples = augment_steering(samples, 0, 0.08, -0.08)
     plot_steering_over_time(samples, plot)
     plot_steering_distribution(samples, plot)
     if shuffule_data:
@@ -446,7 +446,8 @@ def test_model(model_path, test_path, plot_image=False):
     plt.show()
 
     if plot_image:
-        fig = plt.figure(figsize=(15, 15))
+        font_size=30
+        fig = plt.figure(figsize=(50, 50))
         col = 6
         row = int(len(results) / col) + 1
         print("Result: [Ground truth | Prediction | Error]")
@@ -457,16 +458,16 @@ def test_model(model_path, test_path, plot_image=False):
             plt.axis('off')
             gt = data[2] * 25
             pd = data[3] * 25
-            error = data[4] * 100
+            error = data[4] / 2.0 * 100
             if abs(error) > 2.0 and gt*pd<0:
                 title = plt.title("{}: {:2.1f},{:2.1f},{:2.1f}%".format(
-                            data[0], gt, pd, error), fontsize=15,fontweight='bold',color='red')
+                            data[0], gt, pd, error), fontsize=font_size,fontweight='bold',color='red')
             elif abs(error) > 2.0 :
                 title = plt.title("{}: {:2.1f},{:2.1f},{:2.1f}%".format(
-                            data[0], gt, pd, error), fontsize=15,color='red')
+                            data[0], gt, pd, error), fontsize=font_size,color='red')
             else:
                 title = plt.title("{}: {:2.1f},{:2.1f},{:2.1f}%".format(
-                            data[0], gt, pd, error), fontsize=15)
+                            data[0], gt, pd, error), fontsize=font_size)
             i = i + 1
         plt.tight_layout()
         plt.show()
