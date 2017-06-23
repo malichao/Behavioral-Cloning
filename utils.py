@@ -1,6 +1,8 @@
 import os
+import shutil
 import cv2
 import csv
+import math
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from PIL import Image
@@ -30,6 +32,8 @@ INDEX_ID = 2
 
 IMAGE_WIDTH = 80
 IMAGE_HEIGHT = 80
+
+STEERING_GAIN =1.0
 
 
 def open_image(img_path):
@@ -296,8 +300,8 @@ def plot_steering_distribution(samples, plot=True):
 
 def running_mean(x, N):
     # modes = ['full', 'same', 'valid']
-    # x_ = [s * 1.2 for s in x]
-    x_ = x
+    x_ = [s * 1.0 for s in x]
+    # x_ = x
     return np.convolve(x_, np.ones((N,)) / N, mode='same')
 
 
@@ -317,8 +321,8 @@ def filter_steering(samples, N, plot=False):
         filtered_samples.append(sample_)
 
     if plot:
-        # plot_length = int(len(samples) / 3)
-        plot_length = len(samples)
+        plot_length = int(len(samples) / 3)
+        # plot_length = len(samples)
         steerings = [sample[INDEX_STEER] for sample in samples[0:plot_length]]
         steerings_f = [sample[INDEX_STEER]
                        for sample in filtered_samples[0:plot_length]]
@@ -331,9 +335,9 @@ def filter_steering(samples, N, plot=False):
 
 
 def preprocess_samples(samples, shuffule_data=True, plot=False):
-    samples = filter_steering(samples, 100, plot)
+    samples = filter_steering(samples, 32, plot)
     # samples = reduce_straight_steering(samples, 3, plot)
-    samples = augment_steering(samples, 0, 0.08, -0.08)
+    samples = augment_steering(samples, 0, 0.18, -0.18)
     plot_steering_over_time(samples, plot)
     plot_steering_distribution(samples, plot)
     if shuffule_data:
@@ -343,7 +347,7 @@ def preprocess_samples(samples, shuffule_data=True, plot=False):
 
 def load_data(path, plot=False):
     samples = csv2samples(path)
-    samples = preprocess_samples(samples, plot)
+    samples = preprocess_samples(samples,True, plot)
     return samples
 
 
@@ -472,3 +476,87 @@ def test_model(model_path, test_path, plot_image=False):
         plt.tight_layout()
         plt.show()
     print("Test completed")
+
+def plot_log(images_path,log_file,model_path):
+    raw = []
+    with open(log_file) as csvfile:
+        reader = csv.reader(csvfile)
+        for line in reader:
+            raw.append(line)
+
+    raw = raw[3:]
+    log_result =[]
+    offline_result =[]
+    model = load_model(model_path)
+    for sample in raw:
+        image_file = images_path + sample[0]+".jpg"
+        image_array = open_image(image_file)
+        steering = float(model.predict(
+            image_array[None, :, :, :], batch_size=1))
+        
+        steering = STEERING_GAIN * steering
+        log_result.append(float(sample[1]))
+        offline_result.append(steering)
+    
+
+    plt.figure(figsize=(30, 8))
+    plt.plot(log_result, 'r', label='log result')
+    plt.plot(offline_result, 'g', label='offline result')
+    plt.rc('grid', linestyle="--", color='grey')
+    plt.grid(True, 'both')
+    plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
+    plt.show()
+
+
+def draw_line(start_x,start_y,steering, length):
+    angle = steering*math.pi/4.0
+    dx = length * math.sin(angle)
+    dy = length * math.cos(angle)
+    end_x,end_y=int(start_x+dx),int(start_y-dy)
+
+    return end_x,end_y
+
+def visualize_log(images_path,log_file,output_path,model_path=''):
+    samples_raw = []
+    with open(log_file) as csvfile:
+        reader = csv.reader(csvfile)
+        for line in reader:
+            samples_raw.append(line)
+
+    samples_raw = samples_raw[3:]
+    samples = []
+    for sample in samples_raw:
+        steering = float(sample[1])
+        samples.append([sample[0]+".jpg", steering, CENTER_IMAGE])
+
+    print("Open ",len(samples)," files")
+
+    print("Creating image folder at {}".format(output_path))
+    if not os.path.exists(output_path):
+        os.makedirs(output_path)
+    else:
+        shutil.rmtree(output_path)
+        os.makedirs(output_path)
+
+    if model_path:
+        model = load_model(model_path)
+        print("Open model ",model_path)
+    for sample in samples:
+        camera_view = open_image(images_path + sample[INDEX_PATH])
+        img = cv2.imread(images_path + sample[INDEX_PATH])
+        start_x,start_y =int(img.shape[1]/2),img.shape[0]
+        length = img.shape[0]/3
+        end_x,end_y=draw_line(start_x,start_y,sample[INDEX_STEER],length)
+        cv2.line(img,(start_x,start_y),(end_x,end_y),(255,120,0),4)
+        if model_path:
+            steering = float(model.predict(
+                        camera_view[None, :, :, :], batch_size=1))
+            steering = STEERING_GAIN * steering
+            end_x,end_y=draw_line(start_x,start_y,steering,length)
+            cv2.line(img,(start_x,start_y),(end_x,end_y),(0,120,255),4)
+            
+        img[:camera_view.shape[0], :camera_view.shape[1]] = camera_view
+        pil_im = Image.fromarray(img)
+        pil_im.save(output_path+sample[INDEX_PATH])
+
+    print("Process completed")
