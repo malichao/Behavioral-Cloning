@@ -33,11 +33,12 @@ INDEX_ID = 2
 IMAGE_WIDTH = 80
 IMAGE_HEIGHT = 80
 
-STEERING_GAIN =1.0
+STEERING_GAIN = 1.0
 
 
 def open_image(img_path):
     img = cv2.imread(img_path)
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     return preprocess_image(img)
 
 
@@ -182,8 +183,8 @@ def random_shear(image, steering, shear_range=100):
 
 def augment_data(image, steering):
     if random() < 0.5:
-        steering=-steering
-        image=np.fliplr(image)
+        steering = -steering
+        image = np.fliplr(image)
     # if random() < .5:
     #     image,steering= random_shear(image,steering)
     return image, steering
@@ -337,7 +338,7 @@ def filter_steering(samples, N, plot=False):
 def preprocess_samples(samples, shuffule_data=True, plot=False):
     samples = filter_steering(samples, 32, plot)
     # samples = reduce_straight_steering(samples, 3, plot)
-    samples = augment_steering(samples, 0, 0.18, -0.18)
+    samples = augment_steering(samples, 0, 0.1, -0.1)
     plot_steering_over_time(samples, plot)
     plot_steering_distribution(samples, plot)
     if shuffule_data:
@@ -347,7 +348,7 @@ def preprocess_samples(samples, shuffule_data=True, plot=False):
 
 def load_data(path, plot=False):
     samples = csv2samples(path)
-    samples = preprocess_samples(samples,True, plot)
+    samples = preprocess_samples(samples, True, plot)
     return samples
 
 
@@ -387,7 +388,7 @@ def generate_train_data(train_samples, validation_samples):
     return train_generator, validation_generator, len(train_samples), len(validation_samples)
 
 
-def predict_samples(samples,model,step=25):
+def predict_samples(samples, model, step=25):
     results = []
     gts = []
     pds = []
@@ -405,13 +406,14 @@ def predict_samples(samples,model,step=25):
         i = i + 1
     return results
 
+
 def test_model(model_path, test_path, plot_image=False):
     """
     Test the model against a test data set and plot the result
     """
     model = load_model(model_path)
     samples = csv2samples(test_path)
-    samples = preprocess_samples(samples,shuffule_data=False)
+    samples = preprocess_samples(samples, shuffule_data=False)
     samples_new = []
     # for sample in samples:
     #     if sample[INDEX_TYPE] == CENTER_IMAGE:
@@ -450,7 +452,7 @@ def test_model(model_path, test_path, plot_image=False):
     plt.show()
 
     if plot_image:
-        font_size=30
+        font_size = 30
         fig = plt.figure(figsize=(50, 50))
         col = 6
         row = int(len(results) / col) + 1
@@ -463,21 +465,22 @@ def test_model(model_path, test_path, plot_image=False):
             gt = data[2] * 25
             pd = data[3] * 25
             error = data[4] / 2.0 * 100
-            if abs(error) > 2.0 and gt*pd<0:
+            if abs(error) > 2.0 and gt * pd < 0:
                 title = plt.title("{}: {:2.1f},{:2.1f},{:2.1f}%".format(
-                            data[0], gt, pd, error), fontsize=font_size,fontweight='bold',color='red')
-            elif abs(error) > 2.0 :
+                    data[0], gt, pd, error), fontsize=font_size, fontweight='bold', color='red')
+            elif abs(error) > 2.0:
                 title = plt.title("{}: {:2.1f},{:2.1f},{:2.1f}%".format(
-                            data[0], gt, pd, error), fontsize=font_size,color='red')
+                    data[0], gt, pd, error), fontsize=font_size, color='red')
             else:
                 title = plt.title("{}: {:2.1f},{:2.1f},{:2.1f}%".format(
-                            data[0], gt, pd, error), fontsize=font_size)
+                    data[0], gt, pd, error), fontsize=font_size)
             i = i + 1
         plt.tight_layout()
         plt.show()
     print("Test completed")
 
-def plot_log(images_path,log_file,model_path):
+
+def plot_log(images_path, log_file, model_path):
     raw = []
     with open(log_file) as csvfile:
         reader = csv.reader(csvfile)
@@ -485,19 +488,18 @@ def plot_log(images_path,log_file,model_path):
             raw.append(line)
 
     raw = raw[3:]
-    log_result =[]
-    offline_result =[]
+    log_result = []
+    offline_result = []
     model = load_model(model_path)
     for sample in raw:
-        image_file = images_path + sample[0]+".jpg"
+        image_file = images_path + sample[0] + ".jpg"
         image_array = open_image(image_file)
         steering = float(model.predict(
             image_array[None, :, :, :], batch_size=1))
-        
+
         steering = STEERING_GAIN * steering
         log_result.append(float(sample[1]))
         offline_result.append(steering)
-    
 
     plt.figure(figsize=(30, 8))
     plt.plot(log_result, 'r', label='log result')
@@ -508,15 +510,16 @@ def plot_log(images_path,log_file,model_path):
     plt.show()
 
 
-def draw_line(start_x,start_y,steering, length):
-    angle = steering*math.pi/4.0
+def draw_line(start_x, start_y, steering, length):
+    angle = steering * math.pi / 4.0
     dx = length * math.sin(angle)
     dy = length * math.cos(angle)
-    end_x,end_y=int(start_x+dx),int(start_y-dy)
+    end_x, end_y = int(start_x + dx), int(start_y - dy)
 
-    return end_x,end_y
+    return end_x, end_y
 
-def visualize_log(images_path,log_file,output_path,model_path=''):
+
+def visualize_log(images_path, log_file, output_path, model_path=''):
     samples_raw = []
     with open(log_file) as csvfile:
         reader = csv.reader(csvfile)
@@ -527,9 +530,9 @@ def visualize_log(images_path,log_file,output_path,model_path=''):
     samples = []
     for sample in samples_raw:
         steering = float(sample[1])
-        samples.append([sample[0]+".jpg", steering, CENTER_IMAGE])
+        samples.append([sample[0] + ".jpg", steering, CENTER_IMAGE])
 
-    print("Open ",len(samples)," files")
+    print("Open ", len(samples), " files")
 
     print("Creating image folder at {}".format(output_path))
     if not os.path.exists(output_path):
@@ -540,23 +543,29 @@ def visualize_log(images_path,log_file,output_path,model_path=''):
 
     if model_path:
         model = load_model(model_path)
-        print("Open model ",model_path)
+        print("Open model ", model_path)
     for sample in samples:
-        camera_view = open_image(images_path + sample[INDEX_PATH])
-        img = cv2.imread(images_path + sample[INDEX_PATH])
-        start_x,start_y =int(img.shape[1]/2),img.shape[0]
-        length = img.shape[0]/3
-        end_x,end_y=draw_line(start_x,start_y,sample[INDEX_STEER],length)
-        cv2.line(img,(start_x,start_y),(end_x,end_y),(255,120,0),4)
+        file = images_path + sample[INDEX_PATH]
+        if not os.path.isfile(file):
+            print("Cannot open file ", file)
+            continue
+
+        camera_view = open_image(file)
+        img = cv2.imread(file)
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        start_x, start_y = int(img.shape[1] / 2), img.shape[0]
+        length = img.shape[0] / 3
+        end_x, end_y = draw_line(start_x, start_y, sample[INDEX_STEER], length)
+        cv2.line(img, (start_x, start_y), (end_x, end_y), (255, 120, 0), 4)
         if model_path:
             steering = float(model.predict(
-                        camera_view[None, :, :, :], batch_size=1))
+                camera_view[None, :, :, :], batch_size=1))
             steering = STEERING_GAIN * steering
-            end_x,end_y=draw_line(start_x,start_y,steering,length)
-            cv2.line(img,(start_x,start_y),(end_x,end_y),(0,120,255),4)
-            
+            end_x, end_y = draw_line(start_x, start_y, steering, length)
+            cv2.line(img, (start_x, start_y), (end_x, end_y), (0, 120, 255), 4)
+
         img[:camera_view.shape[0], :camera_view.shape[1]] = camera_view
         pil_im = Image.fromarray(img)
-        pil_im.save(output_path+sample[INDEX_PATH])
+        pil_im.save(output_path + sample[INDEX_PATH])
 
     print("Process completed")
