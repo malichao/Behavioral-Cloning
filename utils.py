@@ -301,7 +301,7 @@ def plot_steering_distribution(samples, plot=True):
 
 def running_mean(x, N):
     # modes = ['full', 'same', 'valid']
-    x_ = [s * 1.0 for s in x]
+    x_ = [s * 1.2 for s in x]
     # x_ = x
     return np.convolve(x_, np.ones((N,)) / N, mode='same')
 
@@ -336,7 +336,7 @@ def filter_steering(samples, N, plot=False):
 
 
 def preprocess_samples(samples, shuffule_data=True, plot=False):
-    samples = filter_steering(samples, 32, plot)
+    samples = filter_steering(samples, 64, plot)
     # samples = reduce_straight_steering(samples, 3, plot)
     samples = augment_steering(samples, 0, 0.1, -0.1)
     plot_steering_over_time(samples, plot)
