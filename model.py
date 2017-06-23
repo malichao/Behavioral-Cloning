@@ -37,9 +37,6 @@ def main():
     parser.add_argument('-d', help='data directory',
                         dest='data_dir', type=str, default='')
 
-    parser.add_argument('-c', help='correction directory',
-                        dest='cor_dir', type=str, default='')
-
     parser.add_argument('-l', help='load model',
                         dest='load_model', type=str, default='')
 
@@ -78,9 +75,6 @@ def main():
     if args.data_dir:
         path = args.data_dir
         samples = utils.load_data(path)
-    elif args.cor_dir:
-        path = args.cor_dir
-        samples = utils.load_correction(path)
     else:
         raise("No training data")
 

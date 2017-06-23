@@ -37,12 +37,19 @@ STEERING_GAIN = 1.0
 
 
 def open_image(img_path):
+    """
+    Read a image from a file and convert it to a numpy array
+    Note!! The default format of cv2 image is BGR not RGB
+    """
     img = cv2.imread(img_path)
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     return preprocess_image(img)
 
 
 def preprocess_image(img):
+    """
+    Crop and resize the image
+    """
     # [y1:y2, x1:x2]
     img = img[60:120, 0:320]
     img = cv2.resize(img, (IMAGE_WIDTH, IMAGE_HEIGHT))
@@ -51,13 +58,12 @@ def preprocess_image(img):
 
 
 def make_preprocess_layers():
+    """
+    Build first layer of the network, normalize the pixels to [-1,1]
+    """
     model = Sequential()
     model.add(Lambda(lambda x: x / 255. - .5,
                      input_shape=(IMAGE_HEIGHT, IMAGE_WIDTH, 3)))
-    # Crop 50 rows from the top, 20 rows from the bottom
-    # Crop 0 columns from the left, 0 columns from the right
-    # (90,320,3)
-    # model.add(Cropping2D(cropping=((60, 20), (0, 0)), input_shape=(160, 320, 3)))
     return model
 
 
@@ -98,29 +104,6 @@ def make_commaai():
 
     return model
 
-
-# def make_nvidia():
-#     """
-#     Creates nVidea Autonomous Car Group model
-#     """
-#     model = make_preprocess_layers()
-#     model.add(Convolution2D(24, 5, 5, subsample=(2, 2), activation='relu'))
-#     model.add(Convolution2D(36, 5, 5, subsample=(2, 2), activation='relu'))
-#     model.add(Convolution2D(48, 5, 5, subsample=(2, 2), activation='relu'))
-#     model.add(Convolution2D(64, 3, 3, activation='relu'))
-#     model.add(Convolution2D(64, 3, 3, activation='relu'))
-#     model.add(Flatten())
-#     model.add(Dense(100))
-#     # model.add(Dropout(.5))
-#     model.add(Dense(50))
-#     # model.add(Dropout(.5))
-#     model.add(Dense(10))
-#     # model.add(Dropout(.5))
-#     model.add(Dense(1))
-
-    # return model
-
-
 def make_nvidia():
     model = make_preprocess_layers()
     model.add(Convolution2D(16, 3, 3, activation='relu'))
@@ -131,8 +114,11 @@ def make_nvidia():
     model.add(MaxPooling2D(pool_size=(2, 2)))
     model.add(Flatten())
     model.add(Dense(500, activation='relu'))
+    # model.add(Dropout(.5))
     model.add(Dense(100, activation='relu'))
+    # model.add(Dropout(.5))
     model.add(Dense(20, activation='relu'))
+    # model.add(Dropout(.5))
     model.add(Dense(1))
 
     return model
@@ -182,22 +168,15 @@ def random_shear(image, steering, shear_range=100):
 
 
 def augment_data(image, steering):
+    """
+    Randomly augment the images
+    """
     if random() < 0.5:
         steering = -steering
         image = np.fliplr(image)
     # if random() < .5:
     #     image,steering= random_shear(image,steering)
     return image, steering
-
-
-def augment_data_test(image, steering):
-    if random() < 0.5:
-        steering = -steering
-        image = np.fliplr(image)
-    # if random() < .5:
-    #     image,steering= random_shear(image,steering)
-    return image, steering
-
 
 def generator(samples, batch_size=32, debug=False):
     """
@@ -222,7 +201,7 @@ def generator(samples, batch_size=32, debug=False):
             yield sklearn.utils.shuffle(X_train, y_train)
 
 
-def augment_steering(samples, steering_center=0, steering_left=0, steering_right=0):
+def offset_steering(samples, steering_center=0, steering_left=0, steering_right=0):
     # Augment the data
     # [-25,25] -> [left,right]
     for i in range(0, len(samples)):
@@ -300,22 +279,24 @@ def plot_steering_distribution(samples, plot=True):
 
 
 def running_mean(x, N):
-    # modes = ['full', 'same', 'valid']
+    """
+    Smooth the steering data. Since filtering reduce the magnitude of the
+    steering, we need to amplify the steering by some factor
+    """
     x_ = [s * 1.2 for s in x]
-    # x_ = x
+    # modes = ['full', 'same', 'valid']
     return np.convolve(x_, np.ones((N,)) / N, mode='same')
 
 
 def filter_steering(samples, N, plot=False):
+    """
+    Filter the steering data in the samples
+    """
     steerings = [sample[INDEX_STEER] for sample in samples]
     new_steerings = running_mean(steerings, N)
     new_steerings = running_mean(new_steerings, int(N / 2))
-    # new_steerings = running_mean(new_steerings, int(N/4))
-    # new_steerings = running_mean(new_steerings, int(N/8))
-
-    # new_steerings = running_mean(steerings, N)
     filtered_samples = []
-    # print("{} -> {}".format(len(steerings),len(new_steerings)))
+
     for sample, steering in zip(samples, new_steerings):
         sample_ = sample[:]
         sample_[INDEX_STEER] = steering
@@ -336,9 +317,12 @@ def filter_steering(samples, N, plot=False):
 
 
 def preprocess_samples(samples, shuffule_data=True, plot=False):
+    """
+    Filter and offset the steering data
+    """
     samples = filter_steering(samples, 64, plot)
     # samples = reduce_straight_steering(samples, 3, plot)
-    samples = augment_steering(samples, 0, 0.1, -0.1)
+    samples = offset_steering(samples, 0, 0.1, -0.1)
     plot_steering_over_time(samples, plot)
     plot_steering_distribution(samples, plot)
     if shuffule_data:
@@ -346,66 +330,28 @@ def preprocess_samples(samples, shuffule_data=True, plot=False):
     return samples
 
 
-def load_data(path, plot=False):
+def load_data(path, plot=False):    
+    """
+    Load and preprocess the data for trainning
+    """
     samples = csv2samples(path)
     samples = preprocess_samples(samples, True, plot)
     return samples
 
-
-def load_correction(path, steering=-0.15):
-    files = os.listdir(path)
-    files = [os.path.join(path, file) for file in files]
-    samples = []
-    for file in files:
-        samples.append([file, steering, CENTER_IMAGE])
-    shuffle(samples)
-    return samples
-
-
 def generate_train_data(train_samples, validation_samples):
-    # train_samples, validation_samples = train_test_split(
-    #     samples, test_size=0.2)
-
     train_size = len(train_samples)
     validation_size = len(validation_samples)
     print("train_samples      = ", train_size)
     print("validation_samples = ", validation_size)
 
     BATCH_SIZE = 32
-    # if train_size > BATCH_SIZE:
-    #     train_size = int(train_size / BATCH_SIZE) * BATCH_SIZE
-    # if validation_size > BATCH_SIZE:
-    #     validation_size = int(validation_size / BATCH_SIZE) * BATCH_SIZE
     train_samples = train_samples[0:train_size]
     validation_samples = validation_samples[0:validation_size]
-    print("Resize sample size to avoid Keras warning")
-    print("train_samples      = ", train_size)
-    print("validation_samples = ", validation_size)
     train_generator = generator(train_samples, batch_size=BATCH_SIZE)
     validation_generator = generator(
         validation_samples, batch_size=BATCH_SIZE)
 
     return train_generator, validation_generator, len(train_samples), len(validation_samples)
-
-
-def predict_samples(samples, model, step=25):
-    results = []
-    gts = []
-    pds = []
-    i = 0
-    for sample in samples:
-        image_array = open_image(sample[INDEX_PATH])
-        steering = float(model.predict(
-            image_array[None, :, :, :], batch_size=1))
-        delta = steering - sample[INDEX_STEER]
-        gts.append(sample[INDEX_STEER])
-        pds.append(steering)
-        if i % step == 0:
-            results.append(
-                [i, image_array, sample[INDEX_STEER], steering, delta])
-        i = i + 1
-    return results
-
 
 def test_model(model_path, test_path, plot_image=False):
     """
@@ -481,6 +427,9 @@ def test_model(model_path, test_path, plot_image=False):
 
 
 def plot_log(images_path, log_file, model_path):
+    """
+    Load the logged images and plot the steering data as well as an offline prediction
+    """
     raw = []
     with open(log_file) as csvfile:
         reader = csv.reader(csvfile)
@@ -511,6 +460,9 @@ def plot_log(images_path, log_file, model_path):
 
 
 def draw_line(start_x, start_y, steering, length):
+    """
+    Draw a line on an image to indicate the steering angle
+    """
     angle = steering * math.pi / 4.0
     dx = length * math.sin(angle)
     dy = length * math.cos(angle)
@@ -520,6 +472,9 @@ def draw_line(start_x, start_y, steering, length):
 
 
 def visualize_log(images_path, log_file, output_path, model_path=''):
+    """
+    Visualize the logged image with steering data
+    """
     samples_raw = []
     with open(log_file) as csvfile:
         reader = csv.reader(csvfile)
@@ -569,3 +524,10 @@ def visualize_log(images_path, log_file, output_path, model_path=''):
         pil_im.save(output_path + sample[INDEX_PATH])
 
     print("Process completed")
+
+
+def make_video(image_folder,fps=60):
+    video_file = image_folder + '.mp4'
+    print("Creating video {}, FPS={}".format(video_file, fps))
+    clip = ImageSequenceClip(args.image_folder, fps=fps)
+    clip.write_videofile(video_file)
