@@ -26,7 +26,7 @@ def make_model(model_type, learning_rate=1e-3):
 
     sgd = optimizers.SGD(lr=learning_rate, decay=1e-6,
                          momentum=0.9, nesterov=True)
-    model.compile(loss='mse', optimizer=sgd)
+    model.compile(loss='mse', optimizer='adam')
     return model
 
 

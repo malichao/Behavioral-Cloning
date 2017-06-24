@@ -252,7 +252,11 @@ def plot_steering_over_time(samples, plot=True):
             steerings[2].append(sample[INDEX_STEER])
 
     plt.figure(figsize=(30, 8))
-    plt.plot(steerings[0], 'r', steerings[1], 'g', steerings[2], 'b')
+    line1, = plt.plot(steerings[0], 'r', label='center')
+    line2, = plt.plot(steerings[1], 'g', label='left')
+    line3, = plt.plot(steerings[2], 'b', label='right')
+    plt.title("Steering for different images")
+    plt.legend(handles=[line1,line2,line3], loc=1)
     plt.grid(True)
     plt.show()
 
@@ -260,30 +264,32 @@ def plot_steering_over_time(samples, plot=True):
 def plot_steering_distribution(samples, plot=True):
     if plot == False:
         return
-    num = int(200)
-    bars = [i * 0.1 for i in range(int(-num / 2), int(num / 2), 1)]
-    counts = [[0] * num, [0] * num, [0] * num]
+    steerings = [[],[],[]]
+    bin_size = 50
     for sample in samples:
-        index = int((sample[INDEX_STEER] + 1.0) * num / 2)
-        # index = min(max(0, index), num - 1)
         type_ = sample[INDEX_TYPE]
-        counts[type_][index] = counts[type_][index] + 1
+        steerings[type_].append(sample[INDEX_STEER])
+
     plt.figure(figsize=(16, 4))
     plt.subplot(1, 3, 1)
-    plt.bar(bars, counts[0], color='r', label='center')
+    plt.hist(steerings[0], bins=bin_size, color='r')
+    plt.title("center")
     plt.subplot(1, 3, 2)
-    plt.bar(bars, counts[1], color='g', label='left')
+    plt.hist(steerings[1], bins=bin_size, color='g')
+    plt.title("left")
     plt.subplot(1, 3, 3)
-    plt.bar(bars, counts[2], color='b', label='right')
+    plt.hist(steerings[2], bins=bin_size, color='b')
+    plt.title("right")
     plt.show()
 
 
-def running_mean(x, N):
+def running_mean(x, N, gain=1.0):
     """
     Smooth the steering data. Since filtering reduce the magnitude of the
     steering, we need to amplify the steering by some factor
     """
-    x_ = [s * 1.2 for s in x]
+    N = int(N)
+    x_ = [s * gain for s in x]
     # modes = ['full', 'same', 'valid']
     return np.convolve(x_, np.ones((N,)) / N, mode='same')
 
@@ -293,8 +299,17 @@ def filter_steering(samples, N, plot=False):
     Filter the steering data in the samples
     """
     steerings = [sample[INDEX_STEER] for sample in samples]
-    new_steerings = running_mean(steerings, N)
-    new_steerings = running_mean(new_steerings, int(N / 2))
+    new_steerings = running_mean(steerings, 2,1.5)
+    new_steerings = running_mean(new_steerings, 8,1.0)
+    new_steerings = running_mean(new_steerings, 16,1.0)
+    new_steerings = running_mean(new_steerings, 32,1.0)
+
+
+    # new_steerings = running_mean(steerings, 32,1.1)
+    # new_steerings = running_mean(new_steerings, 32)
+    # new_steerings = running_mean(new_steerings, 64)
+    # new_steerings = running_mean(new_steerings, 128)
+
     filtered_samples = []
 
     for sample, steering in zip(samples, new_steerings):
@@ -320,9 +335,9 @@ def preprocess_samples(samples, shuffule_data=True, plot=False):
     """
     Filter and offset the steering data
     """
-    samples = filter_steering(samples, 64, plot)
+    samples = filter_steering(samples, 128, plot)
     # samples = reduce_straight_steering(samples, 3, plot)
-    samples = offset_steering(samples, 0, 0.1, -0.1)
+    samples = offset_steering(samples, 0, 0.08, -0.08)
     plot_steering_over_time(samples, plot)
     plot_steering_distribution(samples, plot)
     if shuffule_data:
