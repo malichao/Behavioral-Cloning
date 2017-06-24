@@ -534,9 +534,11 @@ def make_video(image_folder,fps=60):
     clip.write_videofile(video_file)
 
 import imageio
-def make_gif(image_folder):
+def make_gif(image_folder,down_sample=1):
     images = []
     files = [x for x in os.listdir(image_folder) if x.endswith('.jpg')]
+    files.sort()
+    files = [files[i] for i in range(0,len(files),down_sample)]
     for file in files:
         images.append(imageio.imread(os.path.join(image_folder,file)))
 
