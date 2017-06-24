@@ -33,7 +33,7 @@ INDEX_ID = 2
 IMAGE_WIDTH = 80
 IMAGE_HEIGHT = 80
 
-STEERING_GAIN = 1.0
+STEERING_GAIN = 1.05
 
 
 def open_image(img_path):
@@ -489,6 +489,7 @@ def visualize_log(images_path, log_file, output_path, model_path=''):
 
     print("Open ", len(samples), " files")
 
+    output_path = os.path.join(output_path,"")
     print("Creating image folder at {}".format(output_path))
     if not os.path.exists(output_path):
         os.makedirs(output_path)
@@ -500,7 +501,7 @@ def visualize_log(images_path, log_file, output_path, model_path=''):
         model = load_model(model_path)
         print("Open model ", model_path)
     for sample in samples:
-        file = images_path + sample[INDEX_PATH]
+        file = os.path.join(images_path ,sample[INDEX_PATH])
         if not os.path.isfile(file):
             print("Cannot open file ", file)
             continue
@@ -511,13 +512,13 @@ def visualize_log(images_path, log_file, output_path, model_path=''):
         start_x, start_y = int(img.shape[1] / 2), img.shape[0]
         length = img.shape[0] / 3
         end_x, end_y = draw_line(start_x, start_y, sample[INDEX_STEER], length)
-        cv2.line(img, (start_x, start_y), (end_x, end_y), (255, 120, 0), 4)
+        cv2.line(img, (start_x, start_y), (end_x, end_y), (0, 120, 255), 3)
         if model_path:
             steering = float(model.predict(
                 camera_view[None, :, :, :], batch_size=1))
             steering = STEERING_GAIN * steering
             end_x, end_y = draw_line(start_x, start_y, steering, length)
-            cv2.line(img, (start_x, start_y), (end_x, end_y), (0, 120, 255), 4)
+            cv2.line(img, (start_x, start_y), (end_x, end_y), (255, 120,0 ), 3)
 
         img[:camera_view.shape[0], :camera_view.shape[1]] = camera_view
         pil_im = Image.fromarray(img)
@@ -525,9 +526,19 @@ def visualize_log(images_path, log_file, output_path, model_path=''):
 
     print("Process completed")
 
-
+from moviepy.editor import ImageSequenceClip
 def make_video(image_folder,fps=60):
     video_file = image_folder + '.mp4'
     print("Creating video {}, FPS={}".format(video_file, fps))
-    clip = ImageSequenceClip(args.image_folder, fps=fps)
+    clip = ImageSequenceClip(image_folder, fps=fps)
     clip.write_videofile(video_file)
+
+import imageio
+def make_gif(image_folder):
+    images = []
+    files = [x for x in os.listdir(image_folder) if x.endswith('.jpg')]
+    for file in files:
+        images.append(imageio.imread(os.path.join(image_folder,file)))
+
+    imageio.mimsave(image_folder + '.gif', images)
+    print("Image is saved to ",image_folder + '.gif')

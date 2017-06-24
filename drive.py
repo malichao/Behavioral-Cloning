@@ -46,7 +46,7 @@ class SimplePIController:
 
 controller = SimplePIController(0.1, 0.002)
 max_speed = 30
-set_speed = 30
+set_speed = 20
 controller.set_desired(set_speed)
 
 @sio.on('telemetry')
@@ -67,9 +67,9 @@ def telemetry(sid, data):
             image_array[None, :, :, :], batch_size=1))
 
         throttle = controller.update(float(speed))
-        # if abs(steering_angle) < 0.02:
-        #     #steering_angle = steering_angle / 4
-        #     steering_angle=0
+        if abs(steering_angle) < 0.02:
+            #steering_angle = steering_angle / 4
+            steering_angle=0
         steering_angle = utils.STEERING_GAIN * steering_angle
         timestamp = datetime.utcnow().strftime('%Y_%m_%d_%H_%M_%S_%f')[:-3]
         print("{},{:.2f},{:.2f}".format(timestamp, steering_angle, throttle))
