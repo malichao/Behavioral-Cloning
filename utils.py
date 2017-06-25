@@ -33,7 +33,7 @@ INDEX_ID = 2
 IMAGE_WIDTH = 80
 IMAGE_HEIGHT = 80
 
-STEERING_GAIN = 1.05
+STEERING_GAIN = 1.20
 
 
 def open_image(img_path):
@@ -84,40 +84,31 @@ def make_lenet():
     return model
 
 
-def make_lenet2():
-    """
-    Build a LeNet model using keras
-    """
-    model = make_preprocess_layers()
-    model.add(Convolution2D(6, 5, 5, activation="relu"))
-    model.add(Dropout(.5))
-    model.add(MaxPooling2D())
-    model.add(Convolution2D(6, 5, 5, activation="relu"))
-    model.add(Dropout(.5))
-    model.add(MaxPooling2D())
-    model.add(Flatten())
-    model.add(Dense(120))
-    model.add(Dense(84))
-    model.add(Dense(1))
-
-    return model
-
-
 def make_commaai():
     # model = Sequential()
     # model.add(Lambda(lambda x: x / 255. - .5, input_shape=(160, 320, 3)))
     model = make_preprocess_layers()
-
-    model.add(Convolution2D(16, 8, 8, subsample=(4, 4), border_mode="same"))
+    model.add(Convolution2D(3, 1, 1, subsample=(1, 1), border_mode='same',
+                            init = 'he_normal'))
+    model.add(BatchNormalization())
     model.add(ELU())
-    model.add(Convolution2D(32, 5, 5, subsample=(2, 2), border_mode="same"))
+    model.add(Convolution2D(16, 5, 5, subsample=(4, 4), border_mode="same",
+                            init = 'he_normal'))
+    model.add(BatchNormalization())
     model.add(ELU())
-    model.add(Convolution2D(64, 5, 5, subsample=(2, 2), border_mode="same"))
+    model.add(Convolution2D(32, 3, 3, subsample=(2, 2), border_mode="same",
+                            init = 'he_normal'))
+    model.add(BatchNormalization())
+    model.add(ELU())
+    model.add(Convolution2D(64, 3, 3, subsample=(2, 2), border_mode="same", 
+                            init = 'he_normal'))
     model.add(Flatten())
-    model.add(Dropout(.5))
+    model.add(Dropout(.2))
+
     model.add(ELU())
     model.add(Dense(512))
     model.add(Dropout(.5))
+
     model.add(ELU())
     model.add(Dense(1))
 
@@ -243,11 +234,11 @@ def offset_steering(samples, steering_center=0, steering_left=0, steering_right=
     # [-25,25] -> [left,right]
     for i in range(0, len(samples)):
         if samples[i][INDEX_TYPE] == CENTER_IMAGE:
-            samples[i][INDEX_STEER] = samples[i][INDEX_STEER]
+            samples[i][INDEX_STEER] = samples[i][INDEX_STEER] + steering_center
         elif samples[i][INDEX_TYPE] == LEFT_IMAGE:
-            samples[i][INDEX_STEER] = samples[i][INDEX_STEER] + offset
+            samples[i][INDEX_STEER] = samples[i][INDEX_STEER] + steering_left
         elif samples[i][INDEX_TYPE] == RIGHT_IMAGE:
-            samples[i][INDEX_STEER] = samples[i][INDEX_STEER] - offset
+            samples[i][INDEX_STEER] = samples[i][INDEX_STEER] + steering_right
     return samples
 
 
@@ -494,6 +485,16 @@ def test_model(model_path, test_path, plot_image=False):
         plt.show()
     print("Test completed")
 
+def offset_image(img,offset=50):
+    img_left = img.copy()
+    img_right = img.copy()
+    # Shift left
+    img_left[:,:img.shape[1]-offset] = img_left[:,offset:]
+    img_left[:,img.shape[1]-offset:] = img[:,-1:]
+    # Shift right
+    img_right[:,offset:] = img_right[:,:img.shape[1]-offset]
+    img_right[:,:offset]  = img[:,:1]
+    return img_left,img_right
 
 def plot_log(images_path, log_file, model_path):
     """
@@ -511,9 +512,17 @@ def plot_log(images_path, log_file, model_path):
     model = load_model(model_path)
     for sample in raw:
         image_file = images_path + sample[0] + ".jpg"
+        if not os.path.isfile(image_file) :
+            continue
         image_array = open_image(image_file)
-        steering = float(model.predict(
-            image_array[None, :, :, :], batch_size=1))
+        img = cv2.imread(image_file)
+        img_left,img_right = offset_image(img)
+        image_array_l = preprocess_image(np.array(img_left))
+        image_array_r = preprocess_image(np.array(img_right))
+        steering_l = float(model.predict(image_array_l[None, :, :, :], batch_size=1))
+        steering_r = float(model.predict(image_array_r[None, :, :, :], batch_size=1))
+        steering = float(model.predict(image_array[None, :, :, :], batch_size=1))
+        steering = (steering + steering_l +steering_r)/3
 
         steering = STEERING_GAIN * steering
         log_result.append(float(sample[1]))
@@ -544,14 +553,16 @@ def visualize_log(images_path, log_file, output_path, model_path=''):
     """
     Visualize the logged image with steering data
     """
+
     samples_raw = []
     with open(log_file) as csvfile:
         reader = csv.reader(csvfile)
         for line in reader:
             samples_raw.append(line)
 
-    samples_raw = samples_raw[3:]
+    samples_raw = samples_raw[4:]
     samples = []
+    print("Reading ",len(samples_raw)," images")
     for sample in samples_raw:
         steering = float(sample[1])
         samples.append([sample[0] + ".jpg", steering, CENTER_IMAGE])

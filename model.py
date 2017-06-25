@@ -37,11 +37,14 @@ def main():
     parser.add_argument('-d', help='data directory',
                         dest='data_dir', type=str, default='')
 
+    parser.add_argument('-g', help='load data from log directory',
+                        dest='log_dir', type=str, default='')
+
     parser.add_argument('-l', help='load model',
                         dest='load_model', type=str, default='')
 
     parser.add_argument('-m', help='make model',
-                        dest='make_model', type=str, default='')
+                        dest='make_model', type=str, default='nvidia')
 
     parser.add_argument('-e', help='epochs',
                         dest='epochs', type=int, default=20)

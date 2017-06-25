@@ -61,15 +61,24 @@ def telemetry(sid, data):
         # The current image from the center camera of the car
         imgString = data["image"]
         image = Image.open(BytesIO(base64.b64decode(imgString)))
-        # image_array = np.asarray(image)
         image_array = utils.preprocess_image(np.array(image))
-        steering_angle = float(model.predict(
-            image_array[None, :, :, :], batch_size=1))
+        steering_angle = float(model.predict(image_array[None, :, :, :], batch_size=1))
+
+
+        # image_l,image_r = utils.offset_image(np.array(image),20)
+        # image_array_l = utils.preprocess_image(image_l)
+        # image_array_r = utils.preprocess_image(image_r)
+        # steering_l = float(model.predict(image_array_l[None, :, :, :], batch_size=1))
+        # steering_r = float(model.predict(image_array_r[None, :, :, :], batch_size=1))
+        # steering_angle = (steering_angle*2 + steering_l +steering_r)/4
+
+
+        # if abs(steering_angle) < 0.02:
+        #     #steering_angle = steering_angle / 4
+        #     steering_angle=0
+
 
         throttle = controller.update(float(speed))
-        if abs(steering_angle) < 0.02:
-            #steering_angle = steering_angle / 4
-            steering_angle=0
         steering_angle = utils.STEERING_GAIN * steering_angle
         timestamp = datetime.utcnow().strftime('%Y_%m_%d_%H_%M_%S_%f')[:-3]
         print("{},{:.2f},{:.2f}".format(timestamp, steering_angle, throttle))
@@ -123,7 +132,7 @@ if __name__ == '__main__':
     )
     args = parser.parse_args()
     set_speed =args.speed
-    print("Driving at [",set_speed,"]")
+    print(" --- Driving at [",set_speed,"] ---")
 
     # check that model Keras version is same as local Keras version
     f = h5py.File(args.model, mode='r')
