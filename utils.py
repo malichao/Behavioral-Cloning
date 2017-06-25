@@ -33,7 +33,7 @@ INDEX_ID = 2
 IMAGE_WIDTH = 80
 IMAGE_HEIGHT = 80
 
-STEERING_GAIN = 1.0
+STEERING_GAIN = 1.05
 
 
 def open_image(img_path):
@@ -200,6 +200,24 @@ def generator(samples, batch_size=32, debug=False):
             y_train = np.array(measurements)
             yield sklearn.utils.shuffle(X_train, y_train)
 
+def plot_generator(gen):
+    """
+    A function to plot the training data in one batch
+    """
+    images,steerings = next(gen)
+    print("Generated a fresh batch")
+    fig = plt.figure(figsize=(20, 20))
+    col = 8
+    row = int(len(images) / col) + 1
+    i = 1
+    for img,steering in zip(images,steerings):
+        plt.subplot(row, col, i)
+        plt.imshow(img)
+        plt.axis('off')
+        plt.title("{}: {:2.2f}".format(i, steering), fontsize=20)
+        i = i + 1
+    plt.tight_layout()
+    plt.show()
 
 def offset_steering(samples, steering_center=0, steering_left=0, steering_right=0):
     # Augment the data
@@ -300,6 +318,13 @@ def filter_steering(samples, N, plot=False):
     """
     steerings = [sample[INDEX_STEER] for sample in samples]
     new_steerings = []
+    
+    new_steerings = running_mean(steerings, 2,1.5)
+    new_steerings = running_mean(new_steerings, 8,1.0)
+    new_steerings = running_mean(new_steerings, 16,1.0)
+    new_steerings = running_mean(new_steerings, 32,1.0)
+    new_steerings = running_mean(new_steerings, 24,1.0)
+
     # Track1 parameters, smooth
     new_steerings = running_mean(steerings, 2,1.5)
     new_steerings = running_mean(new_steerings, 8,1.0)
@@ -343,7 +368,7 @@ def preprocess_samples(samples, shuffule_data=True, plot=False):
     """
     samples = filter_steering(samples, 128, plot)
     samples = reduce_straight_steering(samples, 10, plot)
-    samples = offset_steering(samples, 0, 0.20, -0.20)
+    samples = offset_steering(samples, 0, 0.25, -0.25)
     plot_steering_over_time(samples, plot)
     plot_steering_distribution(samples, plot)
     if shuffule_data:
@@ -374,6 +399,7 @@ def generate_train_data(train_samples, validation_samples):
 
     return train_generator, validation_generator, len(train_samples), len(validation_samples)
 
+from sklearn.metrics import mean_squared_error
 def test_model(model_path, test_path, plot_image=False):
     """
     Test the model against a test data set and plot the result
@@ -409,6 +435,9 @@ def test_model(model_path, test_path, plot_image=False):
                 [i, image_array, sample[INDEX_STEER], steering, delta])
         i = i + 1
         # print("{} {} {}".format(sample[INDEX_PATH],sample[INDEX_STEER],steering,delta))
+
+    mse = mean_squared_error(gts,pds)
+    print("MSE: {:.6f}".format(mse))
 
     print("Plotting results ", len(results))
 
