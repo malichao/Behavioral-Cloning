@@ -15,6 +15,7 @@ from io import BytesIO
 from keras.models import load_model
 import h5py
 from keras import __version__ as keras_version
+import utils
 
 sio = socketio.Server()
 app = Flask(__name__)
@@ -44,9 +45,9 @@ class SimplePIController:
 
 
 controller = SimplePIController(0.1, 0.002)
-set_speed = 20
+max_speed = 30
+set_speed = 22
 controller.set_desired(set_speed)
-
 
 @sio.on('telemetry')
 def telemetry(sid, data):
@@ -60,17 +61,22 @@ def telemetry(sid, data):
         # The current image from the center camera of the car
         imgString = data["image"]
         image = Image.open(BytesIO(base64.b64decode(imgString)))
-        image_array = np.asarray(image)
-        steering_angle = float(model.predict(image_array[None, :, :, :], batch_size=1))
+        # image_array = np.asarray(image)
+        image_array = utils.preprocess_image(np.array(image))
+        steering_angle = float(model.predict(
+            image_array[None, :, :, :], batch_size=1))
 
         throttle = controller.update(float(speed))
-
-        print(steering_angle, throttle)
+        if abs(steering_angle) < 0.02:
+            #steering_angle = steering_angle / 4
+            steering_angle=0
+        steering_angle = utils.STEERING_GAIN * steering_angle
+        timestamp = datetime.utcnow().strftime('%Y_%m_%d_%H_%M_%S_%f')[:-3]
+        print("{},{:.2f},{:.2f}".format(timestamp, steering_angle, throttle))
         send_control(steering_angle, throttle)
 
         # save frame
         if args.image_folder != '':
-            timestamp = datetime.utcnow().strftime('%Y_%m_%d_%H_%M_%S_%f')[:-3]
             image_filename = os.path.join(args.image_folder, timestamp)
             image.save('{}.jpg'.format(image_filename))
     else:
@@ -108,7 +114,16 @@ if __name__ == '__main__':
         default='',
         help='Path to image folder. This is where the images from the run will be saved.'
     )
+    parser.add_argument(
+        '-s',
+        dest='speed',
+        type=float,
+        default=30,
+        help='Speed'
+    )
     args = parser.parse_args()
+    set_speed =args.speed
+    print("Driving at [",set_speed,"]")
 
     # check that model Keras version is same as local Keras version
     f = h5py.File(args.model, mode='r')
