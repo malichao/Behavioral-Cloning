@@ -72,13 +72,15 @@ def main():
         model = make_model(args.make_model, args.learning_rate)
 
     # path = 'data/track1-center1/'
+    samples = []
     if args.data_dir:
-        path = args.data_dir
-        samples = utils.load_data(path)
+        paths = args.data_dir.split(":")
+        for path in paths:
+            samples.extend(utils.load_data(path))
     else:
         raise("No training data")
 
-    print("Training data on [{}]".format(path))
+    print("Training data on [{}]".format(paths))
     print("Training epochs {}".format(args.epochs))
     print("Saving model to [{}.h5]".format(args.output_name))
     print("Learning rate [{}]".format(args.learning_rate))

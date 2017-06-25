@@ -33,7 +33,7 @@ INDEX_ID = 2
 IMAGE_WIDTH = 80
 IMAGE_HEIGHT = 80
 
-STEERING_GAIN = 1.05
+STEERING_GAIN = 1.0
 
 
 def open_image(img_path):
@@ -114,11 +114,11 @@ def make_nvidia():
     model.add(MaxPooling2D(pool_size=(2, 2)))
     model.add(Flatten())
     model.add(Dense(500, activation='relu'))
-    # model.add(Dropout(.5))
+    model.add(Dropout(.5))
     model.add(Dense(100, activation='relu'))
-    # model.add(Dropout(.5))
+    model.add(Dropout(.5))
     model.add(Dense(20, activation='relu'))
-    # model.add(Dropout(.5))
+    model.add(Dropout(.5))
     model.add(Dense(1))
 
     return model
@@ -225,7 +225,7 @@ def reduce_straight_steering(samples, step=0, plot=False):
     count = 0
 
     for sample in samples:
-        if abs(sample[INDEX_STEER]) <= 0.1:
+        if abs(sample[INDEX_STEER]) <= 0.01:
             count = count + 1
             if count >= step:
                 count = 0
@@ -299,16 +299,20 @@ def filter_steering(samples, N, plot=False):
     Filter the steering data in the samples
     """
     steerings = [sample[INDEX_STEER] for sample in samples]
+    new_steerings = []
+    # Track1 parameters, smooth
     new_steerings = running_mean(steerings, 2,1.5)
     new_steerings = running_mean(new_steerings, 8,1.0)
     new_steerings = running_mean(new_steerings, 16,1.0)
     new_steerings = running_mean(new_steerings, 32,1.0)
 
+    # Track2 parameters,aggressive
+    # new_steerings = running_mean(steerings, 2,1.1)
+    # new_steerings = running_mean(new_steerings, 4,1.0)
+    # new_steerings = running_mean(new_steerings, 6,1.0)
+    # new_steerings = running_mean(new_steerings, 8,1.0)
+    # new_steerings = running_mean(new_steerings, 16,1.0)
 
-    # new_steerings = running_mean(steerings, 32,1.1)
-    # new_steerings = running_mean(new_steerings, 32)
-    # new_steerings = running_mean(new_steerings, 64)
-    # new_steerings = running_mean(new_steerings, 128)
 
     filtered_samples = []
 
@@ -324,7 +328,9 @@ def filter_steering(samples, N, plot=False):
         steerings_f = [sample[INDEX_STEER]
                        for sample in filtered_samples[0:plot_length]]
         plt.figure(figsize=(30, 8))
-        plt.plot(steerings, 'r', steerings_f, 'b')
+        line1, = plt.plot(steerings, 'r', label='Raw steerings')
+        line2, =  plt.plot(steerings_f, 'b', label='Filtered steerings')
+        plt.legend(handles=[line1,line2], loc=1)
         plt.grid(True)
         plt.show()
 
@@ -336,8 +342,8 @@ def preprocess_samples(samples, shuffule_data=True, plot=False):
     Filter and offset the steering data
     """
     samples = filter_steering(samples, 128, plot)
-    # samples = reduce_straight_steering(samples, 3, plot)
-    samples = offset_steering(samples, 0, 0.08, -0.08)
+    samples = reduce_straight_steering(samples, 10, plot)
+    samples = offset_steering(samples, 0, 0.20, -0.20)
     plot_steering_over_time(samples, plot)
     plot_steering_distribution(samples, plot)
     if shuffule_data:

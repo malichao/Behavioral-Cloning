@@ -46,7 +46,7 @@ class SimplePIController:
 
 controller = SimplePIController(0.1, 0.002)
 max_speed = 30
-set_speed = 30
+set_speed = 22
 controller.set_desired(set_speed)
 
 @sio.on('telemetry')
@@ -114,7 +114,16 @@ if __name__ == '__main__':
         default='',
         help='Path to image folder. This is where the images from the run will be saved.'
     )
+    parser.add_argument(
+        '-s',
+        dest='speed',
+        type=float,
+        default=30,
+        help='Speed'
+    )
     args = parser.parse_args()
+    set_speed =args.speed
+    print("Driving at [",set_speed,"]")
 
     # check that model Keras version is same as local Keras version
     f = h5py.File(args.model, mode='r')
