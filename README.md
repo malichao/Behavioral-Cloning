@@ -51,6 +51,8 @@ Arguments explaination:
 To run the model, you simply load the model with *drive.py*:
 
 `python drive.py nvidia_t1.h5 -s 30`
+
+
 Arguments explaination:  
 `-s` Set speed, [0,30]  
 
@@ -73,7 +75,7 @@ utils.plot_log("log/","log.txt","nvidia_t1_pro3.h5")
 ```
 
 
-![png](output_1_0.png)
+![png](docs/output_1_0.png)
 
 
 To help analyzing the model, I created a function to overlay the steering data on the images. You could also use the other functions I wrote to make a video or gif.
@@ -98,11 +100,6 @@ utils.make_gif("log_vis",10)
 
     [MoviePy] Done.
     [MoviePy] >>>> Video ready: log_vis.mp4 
-    
-
-
-    
-
 
     Image is saved to  log_vis.gif
 
@@ -150,11 +147,11 @@ plot(img_cv)
 ```
 
 
-![png](output_5_0.png)
+![png](docs/output_5_0.png)
 
 
 
-![png](output_5_1.png)
+![png](docs/output_5_1.png)
 
 
 The next thing I did was to filter the steering angle. As you can see, the raw steering data is very noisy due to the sensitive keyboard response. This is defintely not how a human would drive in real life. Also, such a noisy data would be very difficult for the model to classify and find the optimal weights. To filter the steering, I used the convolution function from numpy. The following function shows how I smooth and offset the steering angles.
@@ -177,22 +174,22 @@ samples = utils.load_data(path,True)
 
 
 
-![png](output_7_2.png)
+![png](docs/output_7_2.png)
 
 
     Samples are reduce from  4305  to  3859
 
 
 
-![png](output_7_4.png)
+![png](docs/output_7_4.png)
 
 
 
-![png](output_7_5.png)
+![png](docs/output_7_5.png)
 
 
 
-![png](output_7_6.png)
+![png](docs/output_7_6.png)
 
 
 ### Model Architecture
@@ -294,7 +291,7 @@ utils.plot_generator(gen)
 
 
 
-![png](output_11_2.png)
+![png](docs/output_11_2.png)
 
 
 
@@ -311,14 +308,14 @@ utils.test_model('nvidia_t1_pro1.h5','data/track1-test/',True)
 
 
 
-![png](output_12_1.png)
+![png](docs/output_12_1.png)
 
 
     Result: [Ground truth | Prediction | Error]
 
 
 
-![png](output_12_3.png)
+![png](docs/output_12_3.png)
 
 
     Test completed
@@ -326,4 +323,6 @@ utils.test_model('nvidia_t1_pro1.h5','data/track1-test/',True)
 
 ### Problem Encountered
 The first problem I encountered was that the car always went off road after the bridge, where it's supposed to turn left but it turned slightly right. Also, sometimes the car just went crazy immediately when the test start. These two problems turn out to be caused by the different format of the cv2 images and PIL images. The default format of cv2 is BGR while the default of PIL is RGB. Since I always open and process the image with cv2 during the training but the drive.py uses PIL to load the image, the training loss is very low but it just doesn't work in the simulator.
+
+
 Steering predict = 2.11 degree
