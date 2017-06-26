@@ -73,11 +73,12 @@ def telemetry(sid, data):
         # steering_angle = (steering_angle*2 + steering_l +steering_r)/4
 
 
-        # if abs(steering_angle) < 0.02:
-        #     #steering_angle = steering_angle / 4
-        #     steering_angle=0
+        if abs(steering_angle) < 0.04:
+            #steering_angle = steering_angle / 4
+            steering_angle=0
 
 
+        controller.set_desired(set_speed)
         throttle = controller.update(float(speed))
         steering_angle = utils.STEERING_GAIN * steering_angle
         timestamp = datetime.utcnow().strftime('%Y_%m_%d_%H_%M_%S_%f')[:-3]

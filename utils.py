@@ -33,7 +33,7 @@ INDEX_ID = 2
 IMAGE_WIDTH = 80
 IMAGE_HEIGHT = 80
 
-STEERING_GAIN = 1.20
+STEERING_GAIN = 1.0
 
 
 def open_image(img_path):
@@ -329,25 +329,24 @@ def filter_steering(samples, N, plot=False):
     steerings = [sample[INDEX_STEER] for sample in samples]
     new_steerings = []
     
-    new_steerings = running_mean(steerings, 2,1.5)
-    new_steerings = running_mean(new_steerings, 8,1.0)
-    new_steerings = running_mean(new_steerings, 16,1.0)
-    new_steerings = running_mean(new_steerings, 32,1.0)
-    new_steerings = running_mean(new_steerings, 24,1.0)
-
-    # Track1 parameters, smooth
-    new_steerings = running_mean(steerings, 2,1.5)
-    new_steerings = running_mean(new_steerings, 8,1.0)
-    new_steerings = running_mean(new_steerings, 16,1.0)
-    new_steerings = running_mean(new_steerings, 32,1.0)
-
-    # Track2 parameters,aggressive
-    # new_steerings = running_mean(steerings, 2,1.1)
-    # new_steerings = running_mean(new_steerings, 4,1.0)
-    # new_steerings = running_mean(new_steerings, 6,1.0)
+    # new_steerings = running_mean(steerings, 2,1.5)
     # new_steerings = running_mean(new_steerings, 8,1.0)
     # new_steerings = running_mean(new_steerings, 16,1.0)
+    # new_steerings = running_mean(new_steerings, 32,1.0)
+    # new_steerings = running_mean(new_steerings, 24,1.0)
 
+    # Track1 parameters, smooth
+    # new_steerings = running_mean(steerings, 2,1.5)
+    # new_steerings = running_mean(new_steerings, 8,1.0)
+    # new_steerings = running_mean(new_steerings, 16,1.0)
+    # new_steerings = running_mean(new_steerings, 32,1.0)
+
+    # Track2 parameters,aggressive
+    new_steerings = running_mean(steerings, 2,1.1)
+    new_steerings = running_mean(new_steerings, 4,1.0)
+    new_steerings = running_mean(new_steerings, 6,1.0)
+    new_steerings = running_mean(new_steerings, 8,1.0)
+    new_steerings = running_mean(new_steerings, 16,1.0)
 
     filtered_samples = []
 
@@ -614,7 +613,7 @@ def make_video(image_folder,fps=60):
     clip.write_videofile(video_file)
 
 import imageio
-def make_gif(image_folder,down_sample=1):
+def make_gif(image_folder,down_sample=10):
     images = []
     files = [x for x in os.listdir(image_folder) if x.endswith('.jpg')]
     files.sort()
