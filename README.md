@@ -8,7 +8,13 @@
 ## Overview
 The goal of this project is to build a convolution neural network in Keras that clones a driver's behavior and predicts steering angles from images. The model I built could successfully drive around track one without leaving the road. The following animation shows how the car drives on the lake side track.
 
-[Animation Place holder]()
+| Track 1         		|     Track2			| 
+|:---------------------:|:---------------------:| 
+|![gif](docs/log_vis1.gif)|![gif](docs/log_vis2.gif)|
+
+See the full size videos here:  
+    [Track1](https://youtu.be/sqTb_xTS4o8)  
+    [Track2](https://youtu.be/8SPdHWBjIxk)  
 
 My project includes the following files:
 
@@ -50,12 +56,17 @@ Arguments explaination:
 ### How to run the model
 To run the model, you simply load the model with *drive.py*:
 
-`python drive.py nvidia_t1.h5 -s 30`
+`python drive.py -s 30 nvidia_t1.h5`
 
 
 Arguments explaination:  
 `-s` Set speed, [0,30]  
 
+There two pretrained models available in this repo. To test the track one, please use **nvidia_t1_pro1.h5**, to test track two, please use **commaai_t2.h5**.:
+
+`python drive.py -s 30 nvidia_t1_pro1.h5`
+
+`python drive.py -s 22 commaai_t2.h5`
 
 ### How to log the data
 Sometime we want to log the data during the test to troubleshoot the model, here's way I used to log the images, steerings, throttle.
@@ -194,7 +205,7 @@ samples = utils.load_data(path,True)
 
 ### Model Architecture
 
-I experimented with several models, including lenet, commaai, and nvidia model. The nnidia model turned out to perform very well so I decided to improve on this model. I first use Keras' lambda layer to normalize the data. And then use 3 convolution layers with max pooling layers before 3 fully connected layers. The final model looks like this: 
+I experimented with several models, including lenet, commaai, and nvidia model. The nvidia model turned out to perform very well so I decided to improve on this model. I first use Keras' lambda layer to normalize the data. And then use 3 convolution layers with max pooling layers before 3 fully connected layers. The final model looks like this: 
 
 
 ```python
@@ -323,6 +334,6 @@ utils.test_model('nvidia_t1_pro1.h5','data/track1-test/',True)
 
 ### Problem Encountered
 The first problem I encountered was that the car always went off road after the bridge, where it's supposed to turn left but it turned slightly right. Also, sometimes the car just went crazy immediately when the test start. These two problems turn out to be caused by the different format of the cv2 images and PIL images. The default format of cv2 is BGR while the default of PIL is RGB. Since I always open and process the image with cv2 during the training but the drive.py uses PIL to load the image, the training loss is very low but it just doesn't work in the simulator.
-
-
-Steering predict = 2.11 degree
+  
+Steering predict = 2.11 degree  
+![png](docs/wrong_prediction.png)
