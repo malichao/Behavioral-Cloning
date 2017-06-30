@@ -1,9 +1,4 @@
-
-
-# Self-Driving Car Engineer Nanodegree
-
-## Project: Build a Traffic Sign Recognition Classifier
-
+## Project - Behavioral Cloning
 ---
 ## Overview
 The goal of this project is to build a convolution neural network in Keras that clones a driver's behavior and predicts steering angles from images. The model I built could successfully drive around track one without leaving the road. The following animation shows how the car drives on the lake side track.
